@@ -1,0 +1,18 @@
+<!-- Top-bar filter icon, exact path from the Figma export (Vector (1).svg).
+     Source glyph 20x20, centred into a 24x24 canvas (translate 2, 2). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:translateX="2"
+        android:translateY="2">
+        <path
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#49454F"
+            android:strokeWidth="2"
+            android:strokeLineCap="round"
+            android:pathData="M8 3H1M10 17H1M12 1V5M14 15V19M19 10H10M19 17H14M19 3H12M6 8V12M6 10H1" />
+    </group>
+</vector>
