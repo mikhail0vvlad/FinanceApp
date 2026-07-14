@@ -60,7 +60,6 @@ fun AnimatedSplash(onFinished: () -> Unit) {
                     contentDescription = null,
                     modifier = Modifier
                         .size(120.dp)
-                        // graphicsLayer, чтобы кадры анимации не рекомпозировали дерево
                         .graphicsLayer {
                             scaleX = logoScale.value
                             scaleY = logoScale.value

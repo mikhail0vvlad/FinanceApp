@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,7 +80,10 @@ fun ListItemRow(
         ) {
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                lineHeight = 16.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.sp,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -101,7 +105,10 @@ fun ListItemRow(
                 item.trailingText?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.bodyLarge,
+                        fontSize = 14.sp,
+                        lineHeight = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        letterSpacing = 0.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                     )
