@@ -1,24 +1,41 @@
 package ru.shmr.finance.domain.model
 
-enum class Currency(val symbol: String) {
-    RUB("₽"),
-    USD("$"),
-    EUR("€"),
+import java.math.BigDecimal
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
+
+enum class Currency(val code: String, val symbol: String) {
+    RUB("RUB", "₽"),
+    USD("USD", "$"),
+    EUR("EUR", "€"),
+    ;
+
+    companion object {
+        fun fromCode(code: String): Currency = entries.find { it.code == code } ?: RUB
+    }
 }
 
 data class Money(
-    val amount: Long,
+    val amount: BigDecimal,
     val currency: Currency = Currency.RUB,
 ) {
-    fun formatted(): String {
-        val digits = amount.toString()
-        val sb = StringBuilder(digits.length + digits.length / 3 + 2)
-        for (i in digits.indices) {
-            if (i > 0 && digits[i - 1] != '-' && (digits.length - i) % 3 == 0) {
-                sb.append(' ')
-            }
-            sb.append(digits[i])
-        }
-        return sb.append(' ').append(currency.symbol).toString()
+    operator fun plus(other: Money): Money = copy(amount = amount + other.amount)
+
+    fun formatted(): String = "${amountFormat.format(amount)} ${currency.symbol}"
+
+    companion object {
+        val ZERO = Money(BigDecimal.ZERO)
+
+        private val amountFormat = DecimalFormat(
+            "#,##0.##",
+            DecimalFormatSymbols(Locale.ROOT).apply {
+                groupingSeparator = ' '
+                decimalSeparator = ','
+            },
+        )
+
+        fun parse(raw: String, currencyCode: String = "RUB"): Money =
+            Money(BigDecimal(raw), Currency.fromCode(currencyCode))
     }
 }
