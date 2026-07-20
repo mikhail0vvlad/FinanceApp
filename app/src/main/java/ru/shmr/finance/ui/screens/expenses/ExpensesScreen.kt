@@ -7,18 +7,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.shmr.finance.R
-import ru.shmr.finance.data.mock.MockData
+import ru.shmr.finance.di.ServiceLocator
 import ru.shmr.finance.ui.screens.ListScreen
-import ru.shmr.finance.ui.screens.ListScreenData
-import ru.shmr.finance.ui.screens.ListScreenViewModel
-import ru.shmr.finance.ui.screens.toListItem
+import ru.shmr.finance.ui.screens.TransactionListViewModel
 
-class ExpensesViewModel : ListScreenViewModel({
-    ListScreenData(
-        total = MockData.expensesTotal.formatted(),
-        items = MockData.expenses.map { it.toListItem() },
-    )
-})
+class ExpensesViewModel : TransactionListViewModel(
+    isIncome = false,
+    accountsRepository = ServiceLocator.accountsRepository,
+    transactionsRepository = ServiceLocator.transactionsRepository,
+)
 
 @Composable
 fun ExpensesScreen(
@@ -26,5 +23,10 @@ fun ExpensesScreen(
     viewModel: ExpensesViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ListScreen(state, stringResource(R.string.expenses_total), modifier)
+    ListScreen(
+        state = state,
+        caption = stringResource(R.string.expenses_total),
+        onRetry = viewModel::retry,
+        modifier = modifier,
+    )
 }
