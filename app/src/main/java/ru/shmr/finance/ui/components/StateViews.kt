@@ -1,5 +1,6 @@
 package ru.shmr.finance.ui.components
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,6 +52,14 @@ fun AppError.message(): String = when (this) {
     AppError.Unauthorized -> stringResource(R.string.error_unauthorized)
     is AppError.Server -> stringResource(R.string.error_server, code)
     AppError.Unknown -> stringResource(R.string.error_unknown)
+}
+
+// Тот же текст для мест вне композиции (например, Snackbar в LaunchedEffect).
+fun AppError.plainMessage(context: Context): String = when (this) {
+    AppError.NoInternet -> context.getString(R.string.error_no_internet)
+    AppError.Unauthorized -> context.getString(R.string.error_unauthorized)
+    is AppError.Server -> context.getString(R.string.error_server, code)
+    AppError.Unknown -> context.getString(R.string.error_unknown)
 }
 
 @Composable
