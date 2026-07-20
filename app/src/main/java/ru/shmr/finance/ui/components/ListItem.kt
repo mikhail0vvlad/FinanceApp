@@ -19,6 +19,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -27,11 +28,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.shmr.finance.ui.theme.LeadBadgeOutline
 
+@Immutable
 sealed interface LeadContent {
     data class Emoji(val emoji: String) : LeadContent
     data object None : LeadContent
 }
 
+@Immutable
 data class ListItemModel(
     val id: String,
     val lead: LeadContent = LeadContent.None,
