@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.shmr.finance.ui.theme.LeadBadgeOutline
 
 @Immutable
 sealed interface LeadContent {
@@ -50,7 +49,7 @@ private fun LeadBadge(emoji: String) {
     Box(
         modifier = Modifier
             .size(40.dp)
-            .border(1.dp, LeadBadgeOutline, CircleShape),
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(emoji, fontSize = 20.sp)

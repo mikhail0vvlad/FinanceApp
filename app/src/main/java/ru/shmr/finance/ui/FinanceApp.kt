@@ -1,5 +1,7 @@
 package ru.shmr.finance.ui
 
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -34,74 +36,103 @@ import ru.shmr.finance.ui.screens.analytics.AnalyticsScreen
 import ru.shmr.finance.ui.screens.expenses.ExpensesScreen
 import ru.shmr.finance.ui.screens.income.IncomeScreen
 
+private const val TABS_ROUTE = "tabs"
 private const val ANALYTICS_ROUTE = "analytics/{income}"
 
 private fun analyticsRoute(income: Boolean) = "analytics/$income"
 
+private const val TRANSITION_MILLIS = 300
+
+/**
+ * Two levels on purpose. The tab Scaffold (top bar, bottom bar, FAB) lives inside the [TABS_ROUTE]
+ * destination rather than wrapping the whole graph, so opening Аналитика does not strip the bars
+ * out from under the outgoing screen — which used to re-lay it out mid-transition and read as a
+ * jump. Аналитика brings its own Scaffold and top bar, so it needs nothing from this level.
+ */
 @Composable
 fun FinanceApp() {
     val navController = rememberNavController()
+
+    NavHost(
+        navController = navController,
+        startDestination = TABS_ROUTE,
+        enterTransition = { slideIntoContainer(SlideDirection.Start, tween(TRANSITION_MILLIS)) },
+        exitTransition = { slideOutOfContainer(SlideDirection.Start, tween(TRANSITION_MILLIS)) },
+        popEnterTransition = { slideIntoContainer(SlideDirection.End, tween(TRANSITION_MILLIS)) },
+        popExitTransition = { slideOutOfContainer(SlideDirection.End, tween(TRANSITION_MILLIS)) },
+    ) {
+        composable(TABS_ROUTE) {
+            TabsScreen(
+                onAnalysisClick = { income -> navController.navigate(analyticsRoute(income)) },
+            )
+        }
+        composable(
+            route = ANALYTICS_ROUTE,
+            arguments = listOf(navArgument("income") { type = NavType.BoolType }),
+        ) { entry ->
+            AnalyticsScreen(
+                startWithIncome = entry.arguments?.getBoolean("income") == true,
+                onBack = { navController.popBackStack() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
+    val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
-    val isTabDestination = Destination.entries.any { destination ->
-        currentDestination?.hierarchy?.any { it.route == destination.route } == true
-    }
     val todayLabel = remember {
         LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru")))
     }
 
     Scaffold(
         topBar = {
-            if (isTabDestination) {
-                AppTopBar(
-                    date = todayLabel,
-                    onAnalysisClick = {
-                        val income = currentDestination
-                            ?.hierarchy
-                            ?.any { it.route == Destination.Income.route } == true
-                        navController.navigate(analyticsRoute(income))
-                    },
-                )
-            }
+            AppTopBar(
+                date = todayLabel,
+                onAnalysisClick = {
+                    val income = currentDestination
+                        ?.hierarchy
+                        ?.any { it.route == Destination.Income.route } == true
+                    onAnalysisClick(income)
+                },
+            )
         },
         bottomBar = {
-            if (isTabDestination) {
-                NavigationBar {
-                    Destination.entries.forEach { destination ->
-                        val selected = currentDestination
-                            ?.hierarchy
-                            ?.any { it.route == destination.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(destination.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+            NavigationBar {
+                Destination.entries.forEach { destination ->
+                    val selected = currentDestination
+                        ?.hierarchy
+                        ?.any { it.route == destination.route } == true
+                    NavigationBarItem(
+                        selected = selected,
+                        onClick = {
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
-                            },
-                            icon = {
-                                Icon(
-                                    painter = painterResource(destination.iconRes),
-                                    contentDescription = stringResource(destination.labelRes),
-                                )
-                            },
-                            label = { Text(stringResource(destination.labelRes)) },
-                        )
-                    }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = {
+                            Icon(
+                                painter = painterResource(destination.iconRes),
+                                contentDescription = stringResource(destination.labelRes),
+                            )
+                        },
+                        label = { Text(stringResource(destination.labelRes)) },
+                    )
                 }
             }
         },
         floatingActionButton = {
-            if (isTabDestination) {
-                FloatingActionButton(onClick = { /* добавление операции — следующее ДЗ */ }) {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.cd_add),
-                    )
-                }
+            FloatingActionButton(onClick = { /* добавление операции — следующее ДЗ */ }) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = stringResource(R.string.cd_add),
+                )
             }
         },
     ) { innerPadding ->
@@ -113,15 +144,6 @@ fun FinanceApp() {
             composable(Destination.Expenses.route) { ExpensesScreen() }
             composable(Destination.Income.route) { IncomeScreen() }
             composable(Destination.Accounts.route) { AccountsScreen() }
-            composable(
-                route = ANALYTICS_ROUTE,
-                arguments = listOf(navArgument("income") { type = NavType.BoolType }),
-            ) { entry ->
-                AnalyticsScreen(
-                    startWithIncome = entry.arguments?.getBoolean("income") == true,
-                    onBack = { navController.popBackStack() },
-                )
-            }
         }
     }
 }

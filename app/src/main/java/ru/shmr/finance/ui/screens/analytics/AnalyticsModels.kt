@@ -7,7 +7,18 @@ import ru.shmr.finance.domain.model.Category
 import ru.shmr.finance.domain.model.Money
 import ru.shmr.finance.domain.model.Transaction
 
-enum class TypeFilter { EXPENSES, INCOME, ALL }
+enum class TypeFilter {
+    EXPENSES,
+    INCOME,
+    ALL,
+    ;
+
+    fun matches(isIncome: Boolean): Boolean = when (this) {
+        EXPENSES -> !isIncome
+        INCOME -> isIncome
+        ALL -> true
+    }
+}
 
 enum class PeriodPreset { CUSTOM, WEEK, MONTH, QUARTER, YEAR }
 

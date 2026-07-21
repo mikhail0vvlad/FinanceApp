@@ -153,13 +153,7 @@ class AnalyticsViewModel(
         anyAccount: Account,
     ): UiState<AnalyticsData> {
         val filtered = transactions
-            .filter {
-                when (filters.type) {
-                    TypeFilter.EXPENSES -> !it.category.isIncome
-                    TypeFilter.INCOME -> it.category.isIncome
-                    TypeFilter.ALL -> true
-                }
-            }
+            .filter { filters.type.matches(it.category.isIncome) }
             .filter { filters.selectedCategoryIds == null || it.category.id in filters.selectedCategoryIds }
             .sortedByDescending { it.dateTime }
 

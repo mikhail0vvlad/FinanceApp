@@ -3,15 +3,18 @@ package ru.shmr.finance.ui.screens.analytics
 import android.content.res.Configuration
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -60,6 +64,25 @@ import ru.shmr.finance.ui.components.ListItemModel
 import ru.shmr.finance.ui.components.ListItemRow
 
 private val PeriodDatesFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSheet(
+    onDismiss: () -> Unit,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = containerColor,
+        content = content,
+    )
+}
+
+@Composable
+private fun SheetDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
 
 @Composable
 private fun SheetTitle(text: String) {
@@ -106,7 +129,6 @@ private fun SheetButton(text: String, onClick: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TypeFilterSheet(
     selected: TypeFilter,
@@ -114,10 +136,7 @@ fun TypeFilterSheet(
     onDismiss: () -> Unit,
 ) {
     var current by remember { mutableStateOf(selected) }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss) {
         SheetTitle(stringResource(R.string.filter_type))
         TypeFilter.entries.forEach { type ->
             Row(
@@ -134,7 +153,7 @@ fun TypeFilterSheet(
                 )
                 SelectionMark(selected = current == type, filled = true)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SheetDivider()
         }
         SheetButton(stringResource(R.string.action_done)) {
             onSelected(current)
@@ -162,7 +181,6 @@ fun PeriodPreset.label(): String = when (this) {
 fun formatPeriod(start: LocalDate, end: LocalDate): String =
     "${start.format(PeriodDatesFormatter)} – ${end.format(PeriodDatesFormatter)}"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeriodFilterSheet(
     filters: AnalyticsFilters,
@@ -170,10 +188,7 @@ fun PeriodFilterSheet(
     onCustomRequested: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss) {
         SheetTitle(stringResource(R.string.filter_period))
         Row(
             modifier = Modifier
@@ -196,7 +211,7 @@ fun PeriodFilterSheet(
             }
             SelectionMark(selected = filters.preset == PeriodPreset.CUSTOM, filled = false)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        SheetDivider()
         listOf(PeriodPreset.WEEK, PeriodPreset.MONTH, PeriodPreset.QUARTER, PeriodPreset.YEAR)
             .forEach { preset ->
                 Row(
@@ -216,7 +231,7 @@ fun PeriodFilterSheet(
                     )
                     SelectionMark(selected = filters.preset == preset, filled = false)
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SheetDivider()
             }
     }
 }
@@ -258,10 +273,7 @@ fun CustomPeriodSheet(
     onConfirm: (LocalDate, LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
         // Force a Russian, Monday-first calendar regardless of the device locale,
         // so the picker reads as neatly as the Figma design.
         val baseConfiguration = LocalConfiguration.current
@@ -298,11 +310,26 @@ fun CustomPeriodSheet(
                 )
             }
 
+            // Figma «Произвольный период» (2041:4536): белый лист, кружки-концы #6750A4,
+            // непрозрачная полоса диапазона и без разделителя над сеткой. По умолчанию
+            // Material подмешивает свой surfaceContainerHigh — из-за него календарь
+            // читался сплошным сиреневым блоком.
             DateRangePicker(
                 state = pickerState,
                 title = null,
                 headline = null,
                 showModeToggle = false,
+                colors = DatePickerDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    subheadContentColor = MaterialTheme.colorScheme.onSurface,
+                    weekdayContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    dayContentColor = MaterialTheme.colorScheme.onSurface,
+                    selectedDayContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedDayContentColor = MaterialTheme.colorScheme.onPrimary,
+                    dayInSelectionRangeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    dayInSelectionRangeContentColor = MaterialTheme.colorScheme.onSurface,
+                    dividerColor = Color.Transparent,
+                ),
                 modifier = Modifier.heightIn(max = 420.dp),
             )
 
@@ -338,7 +365,6 @@ fun CustomPeriodSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArticlesFilterSheet(
     categories: List<Category>,
@@ -349,10 +375,7 @@ fun ArticlesFilterSheet(
     var checkedIds by remember {
         mutableStateOf(selectedIds ?: categories.map { it.id }.toSet())
     }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss) {
         SheetTitle(stringResource(R.string.filter_articles))
         LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
             items(categories, key = { it.id }) { category ->
@@ -382,7 +405,7 @@ fun ArticlesFilterSheet(
                         onCheckedChange = null,
                     )
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SheetDivider()
             }
         }
         SheetButton(stringResource(R.string.action_apply)) {
@@ -392,7 +415,6 @@ fun ArticlesFilterSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountFilterSheet(
     accounts: List<Account>,
@@ -400,10 +422,7 @@ fun AccountFilterSheet(
     onSelected: (Int?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss) {
         SheetTitle(stringResource(R.string.filter_account))
         Row(
             modifier = Modifier
@@ -425,7 +444,7 @@ fun AccountFilterSheet(
             )
             SelectionMark(selected = selectedAccountId == null, filled = false)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        SheetDivider()
         accounts.forEach { account ->
             Row(
                 modifier = Modifier
@@ -447,21 +466,17 @@ fun AccountFilterSheet(
                 )
                 SelectionMark(selected = selectedAccountId == account.id, filled = false)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SheetDivider()
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailSheet(
     data: AnalyticsData,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
+    FilterSheet(onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -526,7 +541,7 @@ fun DetailSheet(
 
 @Composable
 fun LegendDot(color: Color) {
-    androidx.compose.foundation.Canvas(modifier = Modifier.width(10.dp).height(10.dp)) {
+    Canvas(modifier = Modifier.size(10.dp)) {
         drawCircle(color = color)
     }
 }

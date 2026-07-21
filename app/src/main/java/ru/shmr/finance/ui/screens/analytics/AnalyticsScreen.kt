@@ -64,9 +64,8 @@ import ru.shmr.finance.ui.components.ListItemRow
 import ru.shmr.finance.ui.components.LoadingState
 import ru.shmr.finance.ui.components.plainMessage
 import ru.shmr.finance.ui.screens.toListItem
-import ru.shmr.finance.ui.theme.LeadBadgeOutline
 
-private enum class AnalyticsSheet { TYPE, PERIOD, ARTICLES, ACCOUNT, DETAIL }
+private enum class AnalyticsSheet { TYPE, PERIOD, CUSTOM_PERIOD, ARTICLES, ACCOUNT, DETAIL }
 
 @Composable
 fun AnalyticsScreen(
@@ -121,7 +120,6 @@ private fun AnalyticsContent(
     modifier: Modifier = Modifier,
 ) {
     var openSheet by rememberSaveable { mutableStateOf<AnalyticsSheet?>(null) }
-    var showDatePicker by rememberSaveable { mutableStateOf(false) }
 
     Column(modifier.fillMaxSize()) {
         AnalyticsTopBar(onBack)
@@ -184,20 +182,8 @@ private fun AnalyticsContent(
         openSheet = openSheet,
         onAction = onAction,
         onCloseSheet = { openSheet = null },
-        onCustomRequested = {
-            openSheet = null
-            showDatePicker = true
-        },
+        onCustomRequested = { openSheet = AnalyticsSheet.CUSTOM_PERIOD },
     )
-
-    if (showDatePicker) {
-        CustomPeriodSheet(
-            initialStart = state.filters.startDate,
-            initialEnd = state.filters.endDate,
-            onConfirm = { start, end -> onAction(AnalyticsAction.SelectCustomPeriod(start, end)) },
-            onDismiss = { showDatePicker = false },
-        )
-    }
 }
 
 @Composable
@@ -222,14 +208,15 @@ private fun AnalyticsSheets(
             onDismiss = onCloseSheet,
         )
 
+        AnalyticsSheet.CUSTOM_PERIOD -> CustomPeriodSheet(
+            initialStart = state.filters.startDate,
+            initialEnd = state.filters.endDate,
+            onConfirm = { start, end -> onAction(AnalyticsAction.SelectCustomPeriod(start, end)) },
+            onDismiss = onCloseSheet,
+        )
+
         AnalyticsSheet.ARTICLES -> ArticlesFilterSheet(
-            categories = state.categories.filter {
-                when (state.filters.type) {
-                    TypeFilter.EXPENSES -> !it.isIncome
-                    TypeFilter.INCOME -> it.isIncome
-                    TypeFilter.ALL -> true
-                }
-            },
+            categories = state.categories.filter { state.filters.type.matches(it.isIncome) },
             selectedIds = state.filters.selectedCategoryIds,
             onApply = { onAction(AnalyticsAction.SelectCategories(it)) },
             onDismiss = onCloseSheet,
@@ -303,10 +290,10 @@ private fun FilterRows(
     onOpenSheet: (AnalyticsSheet) -> Unit,
 ) {
     val filters = state.filters
-    val articlesChip = when (val ids = filters.selectedCategoryIds) {
-        null -> stringResource(R.string.all_articles)
-        else -> state.categories.filter { it.id in ids }.joinToString { it.name }
-            .ifEmpty { stringResource(R.string.all_articles) }
+    val allArticles = stringResource(R.string.all_articles)
+    val articlesChip = remember(state.categories, filters.selectedCategoryIds, allArticles) {
+        val ids = filters.selectedCategoryIds ?: return@remember allArticles
+        state.categories.filter { it.id in ids }.joinToString { it.name }.ifEmpty { allArticles }
     }
     val accountChip = state.accounts.find { it.id == filters.selectedAccountId }?.name
         ?: stringResource(R.string.all_accounts)
@@ -357,7 +344,7 @@ private fun FilterRow(
         Box(
             modifier = Modifier
                 .size(32.dp)
-                .border(1.dp, LeadBadgeOutline, CircleShape),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

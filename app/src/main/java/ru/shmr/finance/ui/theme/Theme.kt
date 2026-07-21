@@ -34,6 +34,8 @@ private val LightColors = lightColorScheme(
     onSurfaceVariant = OnSurfaceVariant,
     surfaceContainer = SurfaceContainer,
     surfaceContainerHigh = SurfaceContainerHigh,
+    // Лист «Произвольный период» по Figma — чисто белый, а не тонированный surface.
+    surfaceContainerLowest = SurfaceContainerLowest,
     outline = Outline,
     outlineVariant = OutlineVariant,
 )
