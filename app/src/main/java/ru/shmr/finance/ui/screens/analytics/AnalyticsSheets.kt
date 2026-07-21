@@ -1,6 +1,6 @@
 package ru.shmr.finance.ui.screens.analytics
 
-import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -8,48 +8,51 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import ru.shmr.finance.R
@@ -225,9 +228,12 @@ private val CustomPeriodLocale: Locale = Locale("ru")
 private val CustomPeriodFieldFormatter: DateTimeFormatter =
     DateTimeFormatter.ofPattern("d MMM yyyy", CustomPeriodLocale)
 
-private fun formatFieldDate(millis: Long?): String = millis?.let {
-    Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().format(CustomPeriodFieldFormatter)
-} ?: ""
+private val CustomPeriodMonthFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("LLLL yyyy", CustomPeriodLocale)
+private val WeekdayLabels = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+
+private fun formatFieldDate(date: LocalDate?): String =
+    date?.format(CustomPeriodFieldFormatter) ?: ""
 
 @Composable
 private fun DateField(text: String, modifier: Modifier = Modifier) {
@@ -250,6 +256,127 @@ private fun DateField(text: String, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+private fun RangeCalendar(
+    start: LocalDate?,
+    end: LocalDate?,
+    onDayClick: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var visibleMonth by remember { mutableStateOf(YearMonth.from(start ?: LocalDate.now())) }
+
+    Column(modifier.padding(horizontal = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { visibleMonth = visibleMonth.minusMonths(1) }) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null)
+            }
+            Text(
+                text = visibleMonth.format(CustomPeriodMonthFormatter)
+                    .replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = { visibleMonth = visibleMonth.plusMonths(1) }) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+            }
+        }
+
+        Row(Modifier.fillMaxWidth()) {
+            WeekdayLabels.forEach { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+
+        val firstDay = visibleMonth.atDay(1)
+        val leadingBlanks = firstDay.dayOfWeek.value - 1 // Monday = 0 leading
+        val daysInMonth = visibleMonth.lengthOfMonth()
+        val weeks = (leadingBlanks + daysInMonth + 6) / 7
+        for (week in 0 until weeks) {
+            Row(Modifier.fillMaxWidth()) {
+                for (dow in 0 until 7) {
+                    val dayNumber = week * 7 + dow - leadingBlanks + 1
+                    if (dayNumber in 1..daysInMonth) {
+                        DayCell(
+                            date = visibleMonth.atDay(dayNumber),
+                            start = start,
+                            end = end,
+                            onClick = onDayClick,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayCell(
+    date: LocalDate,
+    start: LocalDate?,
+    end: LocalDate?,
+    onClick: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val hasRange = start != null && end != null && start != end
+    val inRange = start != null && end != null &&
+        !date.isBefore(start) && !date.isAfter(end)
+    val isStart = date == start
+    val isEnd = date == end
+    val isEndpoint = isStart || isEnd
+    val bandColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+
+    Box(
+        modifier = modifier.height(44.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (inRange && hasRange) {
+            when {
+                isStart -> Box(
+                    Modifier.align(Alignment.CenterEnd).fillMaxHeight().fillMaxWidth(0.5f)
+                        .background(bandColor),
+                )
+                isEnd -> Box(
+                    Modifier.align(Alignment.CenterStart).fillMaxHeight().fillMaxWidth(0.5f)
+                        .background(bandColor),
+                )
+                else -> Box(Modifier.matchParentSize().background(bandColor))
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .then(
+                    if (isEndpoint) Modifier.background(MaterialTheme.colorScheme.primary)
+                    else Modifier,
+                )
+                .clickable { onClick(date) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isEndpoint) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomPeriodSheet(
@@ -258,81 +385,74 @@ fun CustomPeriodSheet(
     onConfirm: (LocalDate, LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var rangeStart by remember { mutableStateOf<LocalDate?>(initialStart) }
+    var rangeEnd by remember { mutableStateOf<LocalDate?>(initialEnd) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        // Force a Russian, Monday-first calendar regardless of the device locale,
-        // so the picker reads as neatly as the Figma design.
-        val baseConfiguration = LocalConfiguration.current
-        val ruConfiguration = remember(baseConfiguration) {
-            Configuration(baseConfiguration).apply { setLocale(CustomPeriodLocale) }
+        SheetTitle(stringResource(R.string.custom_period_title))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DateField(text = formatFieldDate(rangeStart), modifier = Modifier.weight(1f))
+            Text(
+                text = "—",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            DateField(text = formatFieldDate(rangeEnd), modifier = Modifier.weight(1f))
         }
-        CompositionLocalProvider(LocalConfiguration provides ruConfiguration) {
-            val pickerState = rememberDateRangePickerState(
-                initialSelectedStartDateMillis = initialStart.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-                initialSelectedEndDateMillis = initialEnd.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            )
 
-            SheetTitle(stringResource(R.string.custom_period_title))
+        RangeCalendar(
+            start = rangeStart,
+            end = rangeEnd,
+            onDayClick = { day ->
+                val s = rangeStart
+                when {
+                    s == null || rangeEnd != null -> {
+                        rangeStart = day
+                        rangeEnd = null
+                    }
+                    day.isBefore(s) -> {
+                        rangeStart = day
+                        rangeEnd = s
+                    }
+                    else -> rangeEnd = day
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                DateField(
-                    text = formatFieldDate(pickerState.selectedStartDateMillis),
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = "—",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                DateField(
-                    text = formatFieldDate(pickerState.selectedEndDateMillis),
-                    modifier = Modifier.weight(1f),
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
             }
-
-            DateRangePicker(
-                state = pickerState,
-                title = null,
-                headline = null,
-                showModeToggle = false,
-                modifier = Modifier.heightIn(max = 420.dp),
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = {
+                    val s = rangeStart
+                    val e = rangeEnd
+                    if (s != null && e != null) {
+                        onConfirm(s, e)
+                    }
+                    onDismiss()
+                },
+                shape = RoundedCornerShape(24.dp),
             ) {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        val startMillis = pickerState.selectedStartDateMillis
-                        val endMillis = pickerState.selectedEndDateMillis
-                        if (startMillis != null && endMillis != null) {
-                            onConfirm(
-                                Instant.ofEpochMilli(startMillis).atZone(ZoneOffset.UTC).toLocalDate(),
-                                Instant.ofEpochMilli(endMillis).atZone(ZoneOffset.UTC).toLocalDate(),
-                            )
-                        }
-                        onDismiss()
-                    },
-                    shape = RoundedCornerShape(24.dp),
-                ) {
-                    Text(stringResource(R.string.action_apply))
-                }
+                Text(stringResource(R.string.action_apply))
             }
         }
     }
