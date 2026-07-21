@@ -52,7 +52,7 @@ fun Transaction.toListItem() = ListItemModel(
     id = id.toString(),
     lead = LeadContent.Emoji(category.emoji),
     title = category.name,
-    subtitle = comment,
+    subtitle = comment?.takeIf { it != category.name },
     trailingText = amount.formatted(),
 )
 
