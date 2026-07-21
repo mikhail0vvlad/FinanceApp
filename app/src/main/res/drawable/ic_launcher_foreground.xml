@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Three rising bars = "динамика трат" -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,64 h9 a2,2 0 0 1 2,2 v14 a2,2 0 0 1 -2,2 h-9 a2,2 0 0 1 -2,-2 v-14 a2,2 0 0 1 2,-2 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,52 h9 a2,2 0 0 1 2,2 v26 a2,2 0 0 1 -2,2 h-9 a2,2 0 0 1 -2,-2 v-26 a2,2 0 0 1 2,-2 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,40 h9 a2,2 0 0 1 2,2 v38 a2,2 0 0 1 -2,2 h-9 a2,2 0 0 1 -2,-2 v-38 a2,2 0 0 1 2,-2 z" />
+</vector>

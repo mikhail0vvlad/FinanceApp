@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Green rounded badge -->
+    <path
+        android:fillColor="#2AE881"
+        android:pathData="M28,10 h64 a18,18 0 0 1 18,18 v64 a18,18 0 0 1 -18,18 h-64 a18,18 0 0 1 -18,-18 v-64 a18,18 0 0 1 18,-18 z" />
+    <!-- Three rising bars -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,66 h10 a2,2 0 0 1 2,2 v14 a2,2 0 0 1 -2,2 h-10 a2,2 0 0 1 -2,-2 v-14 a2,2 0 0 1 2,-2 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,52 h10 a2,2 0 0 1 2,2 v28 a2,2 0 0 1 -2,2 h-10 a2,2 0 0 1 -2,-2 v-28 a2,2 0 0 1 2,-2 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,38 h10 a2,2 0 0 1 2,2 v42 a2,2 0 0 1 -2,2 h-10 a2,2 0 0 1 -2,-2 v-42 a2,2 0 0 1 2,-2 z" />
+</vector>

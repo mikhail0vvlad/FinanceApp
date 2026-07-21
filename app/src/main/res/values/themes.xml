@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base application theme. The actual UI is styled from Compose (Material 3). -->
+    <style name="Theme.SHMRFinance" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash screen theme applied to the launcher activity. -->
+    <style name="Theme.SHMRFinance.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="windowSplashScreenAnimationDuration">600</item>
+        <item name="postSplashScreenTheme">@style/Theme.SHMRFinance</item>
+    </style>
+
+</resources>

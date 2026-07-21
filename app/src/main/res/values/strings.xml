@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Финансы</string>
+    <string name="splash_subtitle">машина финансовой правды</string>
+
+    <string name="nav_expenses">Расходы</string>
+    <string name="nav_income">Доходы</string>
+    <string name="nav_accounts">Счета</string>
+
+    <string name="expenses_total">расходы, всего</string>
+    <string name="income_total">доходы, всего</string>
+    <string name="balance_total">баланс, всего</string>
+
+    <string name="cd_add">Добавить</string>
+    <string name="cd_analysis">Анализ</string>
+    <string name="cd_history">История</string>
+</resources>

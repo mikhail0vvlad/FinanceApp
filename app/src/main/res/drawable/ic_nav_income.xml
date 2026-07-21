@@ -1,0 +1,22 @@
+<!-- "Доходы" icon: thin stroked trending-up arrow, to match the mock's
+     stroked icon style (same weight/caps as the other nav icons). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#49454F"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M23 6 L13.5 15.5 L8.5 10.5 L1 18" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#49454F"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17 6 H23 V12" />
+</vector>
