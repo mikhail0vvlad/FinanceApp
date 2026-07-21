@@ -26,6 +26,7 @@
     <string name="analytics_total_for_period">Всего за период</string>
     <string name="analytics_transactions">Транзакции</string>
     <string name="analytics_detail">Детализация</string>
+    <string name="custom_period_title">Произвольный период</string>
 
     <string name="filter_type">Тип</string>
     <string name="filter_period">Период</string>

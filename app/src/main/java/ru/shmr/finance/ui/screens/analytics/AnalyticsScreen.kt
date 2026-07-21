@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,7 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Sell
@@ -50,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -189,7 +191,7 @@ private fun AnalyticsContent(
     )
 
     if (showDatePicker) {
-        CustomPeriodDialog(
+        CustomPeriodSheet(
             initialStart = state.filters.startDate,
             initialEnd = state.filters.endDate,
             onConfirm = { start, end -> onAction(AnalyticsAction.SelectCustomPeriod(start, end)) },
@@ -253,19 +255,22 @@ private fun AnalyticsTopBar(onBack: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 12.dp),
+            .height(64.dp)
+            .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = stringResource(R.string.cd_back),
             )
         }
         Text(
             text = stringResource(R.string.analytics_title),
-            style = MaterialTheme.typography.headlineLarge,
-            modifier = Modifier.padding(start = 8.dp),
+            fontSize = 24.sp,
+            lineHeight = 32.sp,
+            fontWeight = FontWeight.Normal,
+            modifier = Modifier.padding(start = 4.dp),
         )
     }
 }
@@ -351,14 +356,14 @@ private fun FilterRow(
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(32.dp)
                 .border(1.dp, LeadBadgeOutline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 painter = icon,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
                 tint = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -382,7 +387,7 @@ private fun FilterRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .widthIn(max = 220.dp)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
     }

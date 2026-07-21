@@ -1,6 +1,10 @@
 package ru.shmr.finance.ui.screens.analytics
 
+import android.content.res.Configuration
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,11 +18,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -30,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +51,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import ru.shmr.finance.R
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.Category
@@ -58,7 +65,7 @@ private val PeriodDatesFormatter: DateTimeFormatter = DateTimeFormatter.ofPatter
 private fun SheetTitle(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.headlineMedium,
+        style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
     )
@@ -78,7 +85,7 @@ private fun SelectionMark(selected: Boolean, filled: Boolean) {
         )
     } else if (selected) {
         Icon(
-            imageVector = Icons.Filled.CheckCircle,
+            imageVector = Icons.Filled.Check,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
         )
@@ -214,48 +221,120 @@ fun PeriodFilterSheet(
     }
 }
 
+private val CustomPeriodLocale: Locale = Locale("ru")
+private val CustomPeriodFieldFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("d MMM yyyy", CustomPeriodLocale)
+
+private fun formatFieldDate(millis: Long?): String = millis?.let {
+    Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().format(CustomPeriodFieldFormatter)
+} ?: ""
+
+@Composable
+private fun DateField(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(8.dp),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomPeriodDialog(
+fun CustomPeriodSheet(
     initialStart: LocalDate,
     initialEnd: LocalDate,
     onConfirm: (LocalDate, LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val pickerState = rememberDateRangePickerState(
-        initialSelectedStartDateMillis = initialStart.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        initialSelectedEndDateMillis = initialEnd.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-    )
-    DatePickerDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val startMillis = pickerState.selectedStartDateMillis
-                    val endMillis = pickerState.selectedEndDateMillis
-                    if (startMillis != null && endMillis != null) {
-                        onConfirm(
-                            Instant.ofEpochMilli(startMillis).atZone(ZoneOffset.UTC).toLocalDate(),
-                            Instant.ofEpochMilli(endMillis).atZone(ZoneOffset.UTC).toLocalDate(),
-                        )
-                    }
-                    onDismiss()
-                },
-            ) {
-                Text(stringResource(R.string.action_done))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.action_cancel))
-            }
-        },
+        containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        DateRangePicker(
-            state = pickerState,
-            showModeToggle = false,
-            modifier = Modifier.heightIn(max = 480.dp),
-        )
+        // Force a Russian, Monday-first calendar regardless of the device locale,
+        // so the picker reads as neatly as the Figma design.
+        val baseConfiguration = LocalConfiguration.current
+        val ruConfiguration = remember(baseConfiguration) {
+            Configuration(baseConfiguration).apply { setLocale(CustomPeriodLocale) }
+        }
+        CompositionLocalProvider(LocalConfiguration provides ruConfiguration) {
+            val pickerState = rememberDateRangePickerState(
+                initialSelectedStartDateMillis = initialStart.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+                initialSelectedEndDateMillis = initialEnd.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+            )
+
+            SheetTitle(stringResource(R.string.custom_period_title))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DateField(
+                    text = formatFieldDate(pickerState.selectedStartDateMillis),
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "—",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                DateField(
+                    text = formatFieldDate(pickerState.selectedEndDateMillis),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            DateRangePicker(
+                state = pickerState,
+                title = null,
+                headline = null,
+                showModeToggle = false,
+                modifier = Modifier.heightIn(max = 420.dp),
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        val startMillis = pickerState.selectedStartDateMillis
+                        val endMillis = pickerState.selectedEndDateMillis
+                        if (startMillis != null && endMillis != null) {
+                            onConfirm(
+                                Instant.ofEpochMilli(startMillis).atZone(ZoneOffset.UTC).toLocalDate(),
+                                Instant.ofEpochMilli(endMillis).atZone(ZoneOffset.UTC).toLocalDate(),
+                            )
+                        }
+                        onDismiss()
+                    },
+                    shape = RoundedCornerShape(24.dp),
+                ) {
+                    Text(stringResource(R.string.action_apply))
+                }
+            }
+        }
     }
 }
 
