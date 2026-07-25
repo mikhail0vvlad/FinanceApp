@@ -30,8 +30,7 @@ val SurfaceVariant = Color(0xFFE7E0EC)
 val OnSurfaceVariant = Color(0xFF49454F)
 val SurfaceContainer = Color(0xFFF3EDF7)
 val SurfaceContainerHigh = Color(0xFFECE6F0)
+val SurfaceContainerLowest = Color(0xFFFFFFFF)
 
 val Outline = Color(0xFF79747E)
 val OutlineVariant = Color(0xFFCAC4D0)
-
-val LeadBadgeOutline = Color(0xFFC4C7C5)

@@ -13,4 +13,40 @@
     <string name="cd_add">Добавить</string>
     <string name="cd_analysis">Анализ</string>
     <string name="cd_history">История</string>
+    <string name="cd_back">Назад</string>
+
+    <string name="error_no_internet">Нет соединения с сетью</string>
+    <string name="error_unauthorized">Ошибка авторизации. Проверьте API-токен</string>
+    <string name="error_server">Ошибка сервера (%1$d). Попробуйте позже</string>
+    <string name="error_unknown">Что-то пошло не так</string>
+    <string name="action_retry">Повторить</string>
+    <string name="empty_no_data">Нет данных за выбранный период</string>
+
+    <string name="analytics_title">Аналитика</string>
+    <string name="analytics_total_for_period">Всего за период</string>
+    <string name="analytics_transactions">Транзакции</string>
+    <string name="analytics_detail">Детализация</string>
+    <string name="custom_period_title">Произвольный период</string>
+
+    <string name="filter_type">Тип</string>
+    <string name="filter_period">Период</string>
+    <string name="filter_articles">Статьи</string>
+    <string name="filter_account">Счёт</string>
+
+    <string name="type_expenses">Расходы</string>
+    <string name="type_income">Доходы</string>
+    <string name="type_all">Всё</string>
+
+    <string name="period_custom">Произвольный</string>
+    <string name="period_week">За неделю</string>
+    <string name="period_month">За месяц</string>
+    <string name="period_quarter">За квартал</string>
+    <string name="period_year">За год</string>
+
+    <string name="all_accounts">Все счета</string>
+    <string name="all_articles">Все</string>
+
+    <string name="action_done">Готово</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_apply">Применить</string>
 </resources>

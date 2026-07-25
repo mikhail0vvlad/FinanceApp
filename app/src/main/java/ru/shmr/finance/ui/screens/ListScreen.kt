@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.Transaction
+import ru.shmr.finance.ui.components.EmptyState
 import ru.shmr.finance.ui.components.ErrorState
 import ru.shmr.finance.ui.components.LeadContent
 import ru.shmr.finance.ui.components.ListItemModel
@@ -27,11 +28,13 @@ data class ListScreenData(
 fun ListScreen(
     state: UiState<ListScreenData>,
     caption: String,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
         UiState.Loading -> LoadingState(modifier)
-        is UiState.Error -> ErrorState(state.message, modifier)
+        UiState.Empty -> EmptyState(modifier)
+        is UiState.Error -> ErrorState(state.error, onRetry, modifier)
         is UiState.Content -> Column(modifier.fillMaxSize()) {
             TotalHeader(
                 caption = caption,
@@ -46,16 +49,15 @@ fun ListScreen(
 }
 
 fun Transaction.toListItem() = ListItemModel(
-    id = id,
+    id = id.toString(),
     lead = LeadContent.Emoji(category.emoji),
     title = category.name,
-    subtitle = comment,
     trailingText = amount.formatted(),
 )
 
 fun Account.toListItem() = ListItemModel(
-    id = id,
-    lead = LeadContent.Emoji(emoji),
+    id = id.toString(),
+    lead = LeadContent.Emoji("💰"),
     title = name,
     trailingText = balance.formatted(),
 )

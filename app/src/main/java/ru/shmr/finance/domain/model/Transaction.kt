@@ -1,20 +1,13 @@
 package ru.shmr.finance.domain.model
 
-data class Transaction(
-    val id: String,
-    val category: Category,
-    val comment: String?,
-    val amount: Money,
-)
+import java.time.LocalDateTime
 
-data class TransactionDetailed(
-    val id: String,
-    val accountId: String,
+data class Transaction(
+    val id: Int,
+    val accountId: Int,
+    val accountName: String,
     val category: Category,
     val comment: String?,
     val amount: Money,
-    val transactionDate: String,
-    val transactionTime: String,
-    val createdAt: String,
-    val updatedAt: String,
+    val dateTime: LocalDateTime,
 )
