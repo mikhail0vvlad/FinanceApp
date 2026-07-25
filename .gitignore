@@ -157,3 +157,5 @@ fabric.properties
 
 # Claude Code project guidance — local only, do not push
 CLAUDE.md
+
+AGENTS.md
