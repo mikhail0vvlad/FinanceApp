@@ -15,28 +15,29 @@ class AuthInterceptor(private val token: () -> String) : Interceptor {
 
 // Сервер периодически отвечает 5xx — повторяем запрос с растущей паузой.
 class RetryInterceptor(
-    private val maxAttempts: Int = 3,
-    private val delayMillis: Long = 500,
+    private val maxRetries: Int = 3,
+    private val retryDelayMillis: Long = 2_000,
+    private val sleeper: (Long) -> Unit = Thread::sleep,
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
         var lastException: IOException? = null
-        for (attempt in 1..maxAttempts) {
+        for (attempt in 0..maxRetries) {
             try {
                 val response = chain.proceed(chain.request())
-                if (response.code < 500 || attempt == maxAttempts) return response
+                if (response.code < 500 || attempt == maxRetries) return response
                 response.close()
             } catch (e: IOException) {
                 lastException = e
-                if (attempt == maxAttempts) throw e
+                if (attempt == maxRetries) throw e
             }
             try {
-                Thread.sleep(delayMillis * attempt)
+                sleeper(retryDelayMillis)
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw lastException ?: IOException("Retry interrupted", e)
             }
         }
-        throw lastException ?: IOException("Request failed after $maxAttempts attempts")
+        throw lastException ?: IOException("Request failed after ${maxRetries + 1} attempts")
     }
 }

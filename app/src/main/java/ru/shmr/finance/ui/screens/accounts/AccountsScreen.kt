@@ -11,14 +11,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import ru.shmr.finance.R
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.di.ServiceLocator
-import ru.shmr.finance.domain.model.Money
+import ru.shmr.finance.domain.model.AppError
+import ru.shmr.finance.domain.model.MoneyTotals
 import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.ui.screens.ListScreen
 import ru.shmr.finance.ui.screens.ListScreenData
@@ -28,43 +31,50 @@ class AccountsViewModel(
     private val accountsRepository: AccountsRepository = ServiceLocator.accountsRepository,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<UiState<ListScreenData>>(UiState.Loading)
-    val state = _state.asStateFlow()
+    private val refreshError = MutableStateFlow<AppError?>(null)
+    private val initialLoadFinished = MutableStateFlow(false)
+    private var refreshJob: Job? = null
 
-    private var loadJob: Job? = null
+    val state = combine(
+        accountsRepository.observeAccounts(),
+        refreshError,
+        initialLoadFinished,
+    ) { accounts, error, loaded ->
+        when {
+            !loaded && accounts.isEmpty() -> UiState.Loading
+            accounts.isNotEmpty() -> {
+                val total = MoneyTotals.of(accounts.map { it.balance })
+                UiState.Content(
+                    ListScreenData(
+                        total = total.formatted(),
+                        items = accounts.map { it.toListItem() },
+                    ),
+                )
+            }
+            error != null -> UiState.Error(error)
+            else -> UiState.Empty
+        }
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            UiState.Loading,
+        )
 
     init {
-        load()
+        refresh()
     }
 
-    fun retry() = load()
+    fun retry() = refresh()
 
-    private fun load() {
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            _state.value = UiState.Loading
-            when (val result = accountsRepository.getAccounts()) {
-                is AppResult.Failure -> _state.value = UiState.Error(result.error)
-                is AppResult.Success -> {
-                    val accounts = result.data
-                    _state.value = if (accounts.isEmpty()) {
-                        UiState.Empty
-                    } else {
-                        withContext(Dispatchers.Default) {
-                            val total = accounts
-                                .fold(Money.ZERO.copy(currency = accounts.first().balance.currency)) { acc, account ->
-                                    acc + account.balance
-                                }
-                            UiState.Content(
-                                ListScreenData(
-                                    total = total.formatted(),
-                                    items = accounts.map { it.toListItem() },
-                                ),
-                            )
-                        }
-                    }
-                }
-            }
+    private fun refresh() {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
+            refreshError.value = null
+            val result = accountsRepository.refreshAccounts()
+            if (result is AppResult.Failure) refreshError.value = result.error
+            initialLoadFinished.value = true
         }
     }
 }
@@ -72,6 +82,7 @@ class AccountsViewModel(
 @Composable
 fun AccountsScreen(
     modifier: Modifier = Modifier,
+    onAccountClick: (Int) -> Unit = {},
     viewModel: AccountsViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -79,6 +90,7 @@ fun AccountsScreen(
         state = state,
         caption = stringResource(R.string.balance_total),
         onRetry = viewModel::retry,
+        onItemClick = { onAccountClick(it.toInt()) },
         modifier = modifier,
     )
 }

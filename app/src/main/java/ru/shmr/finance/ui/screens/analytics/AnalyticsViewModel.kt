@@ -152,14 +152,19 @@ class AnalyticsViewModel(
         filters: AnalyticsFilters,
         anyAccount: Account,
     ): UiState<AnalyticsData> {
-        val filtered = transactions
+        val matching = transactions
             .filter { filters.type.matches(it.category.isIncome) }
             .filter { filters.selectedCategoryIds == null || it.category.id in filters.selectedCategoryIds }
             .sortedByDescending { it.dateTime }
 
-        if (filtered.isEmpty()) return UiState.Empty
+        if (matching.isEmpty()) return UiState.Empty
 
-        val currency = anyAccount.balance.currency
+        val currency = if (filters.selectedAccountId != null) {
+            anyAccount.balance.currency
+        } else {
+            matching.first().amount.currency
+        }
+        val filtered = matching.filter { it.amount.currency == currency }
         val total = filtered.fold(Money.ZERO.copy(currency = currency)) { acc, tx -> acc + tx.amount }
 
         val shares = filtered

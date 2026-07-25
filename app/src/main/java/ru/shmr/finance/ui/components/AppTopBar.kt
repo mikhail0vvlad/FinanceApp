@@ -49,7 +49,7 @@ fun AppTopBar(
             IconButton(onClick = onFilterClick) {
                 Icon(
                     painter = painterResource(R.drawable.ic_tune),
-                    contentDescription = stringResource(R.string.cd_history),
+                    contentDescription = stringResource(R.string.cd_settings),
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
             }

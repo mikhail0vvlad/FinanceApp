@@ -13,6 +13,7 @@
     <string name="cd_add">Добавить</string>
     <string name="cd_analysis">Анализ</string>
     <string name="cd_history">История</string>
+    <string name="cd_settings">Настройки</string>
     <string name="cd_back">Назад</string>
 
     <string name="error_no_internet">Нет соединения с сетью</string>
@@ -49,4 +50,81 @@
     <string name="action_done">Готово</string>
     <string name="action_cancel">Отмена</string>
     <string name="action_apply">Применить</string>
+
+    <string name="settings_title">Настройки</string>
+    <string name="settings_wallet">Кошелёк</string>
+    <string name="settings_currency">Валюта</string>
+    <string name="settings_articles">Статьи</string>
+    <string name="settings_interface">Интерфейс</string>
+    <string name="settings_theme">Тема оформления</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_security">Безопасность</string>
+    <string name="settings_pin">ПИН-код</string>
+    <string name="settings_biometrics">Биометрия</string>
+    <string name="settings_coming_later">В следующем этапе</string>
+    <string name="settings_currency_explanation">Выбранная валюта используется только по умолчанию для новых счетов. Существующие суммы не конвертируются.</string>
+    <string name="settings_articles_search">Поиск по статьям</string>
+    <string name="settings_clear_search">Очистить поиск</string>
+    <string name="settings_articles_empty">В кэше пока нет статей</string>
+    <string name="settings_articles_no_results">Ничего не найдено</string>
+    <string name="settings_security_next_chat">Настройка безопасности появится на следующем этапе.</string>
+
+    <string name="currency_rub">Российский рубль</string>
+    <string name="currency_usd">Доллар США</string>
+    <string name="currency_eur">Евро</string>
+    <string name="currency_gbp">Фунт стерлингов</string>
+    <string name="currency_cny">Китайский юань</string>
+
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_system">Системная</string>
+
+    <string name="language_russian">Русский</string>
+    <string name="language_english">English</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_french">Français</string>
+    <string name="language_spanish">Español</string>
+
+    <string name="cd_pin_progress">Введено %1$d из %2$d цифр</string>
+    <string name="cd_pin_backspace">Стереть цифру</string>
+
+    <string name="security_pin_set">Задан</string>
+    <string name="security_pin_not_set">Не задан</string>
+    <string name="security_pin_create_title">Создать ПИН-код</string>
+    <string name="security_pin_change_title">Изменить ПИН-код</string>
+    <string name="security_pin_hint_current">Введите текущий ПИН-код</string>
+    <string name="security_pin_hint_new">Введите новый ПИН-код</string>
+    <string name="security_pin_hint_confirm">Повторите новый ПИН-код</string>
+    <string name="security_pin_error_wrong_current">Неверный ПИН-код</string>
+    <string name="security_pin_error_mismatch">ПИН-коды не совпали, попробуйте ещё раз</string>
+    <string name="security_pin_error_storage">Не удалось сохранить ПИН-код на этом устройстве</string>
+    <string name="security_pin_error_unreadable">Прежний ПИН-код больше нельзя проверить. Задайте новый</string>
+    <string name="security_pin_remove">Удалить ПИН-код</string>
+
+    <string name="security_biometrics_on">Включена</string>
+    <string name="security_biometrics_off">Выключена</string>
+    <string name="security_biometrics_toggle">Отпечаток или лицо</string>
+    <string name="security_biometrics_description">Используйте отпечаток пальца для быстрого входа</string>
+    <string name="security_biometrics_footnote">Биометрические данные хранятся только на вашем устройстве и не передаются приложению.</string>
+    <string name="security_biometrics_requires_pin">Сначала задайте ПИН-код: он нужен как запасной вход</string>
+    <string name="security_biometrics_no_hardware">На этом устройстве нет биометрического датчика</string>
+    <string name="security_biometrics_none_enrolled">Добавьте отпечаток или лицо в настройках устройства</string>
+    <string name="security_biometrics_hardware_unavailable">Датчик временно недоступен</string>
+    <string name="security_biometrics_update_required">Требуется обновление системы безопасности</string>
+    <string name="security_biometrics_unsupported">Биометрия не поддерживается на этом устройстве</string>
+    <string name="security_biometrics_lockout">Слишком много попыток. Попробуйте позже</string>
+    <string name="security_biometrics_lockout_permanent">Биометрия заблокирована. Разблокируйте устройство паролем</string>
+    <string name="security_biometrics_unavailable">Датчик недоступен, биометрия выключена</string>
+    <string name="security_biometrics_failed">Не удалось проверить биометрию</string>
+    <string name="security_biometrics_prompt_title">Подтвердите личность</string>
+    <string name="security_biometrics_prompt_subtitle">Чтобы включить быстрый вход</string>
+    <string name="security_biometrics_prompt_negative">Ввести ПИН-код</string>
+
+    <string name="lock_title">Приложение заблокировано</string>
+    <string name="lock_subtitle">Введите ПИН-код, чтобы продолжить</string>
+    <string name="lock_use_biometrics">Войти по биометрии</string>
+    <string name="lock_error_wrong_pin">Неверный ПИН-код</string>
+    <string name="lock_error_credential_reset">ПИН-код больше нельзя проверить и защита снята. Задайте ПИН-код заново в настройках</string>
+    <string name="lock_prompt_title">Разблокировать приложение</string>
+    <string name="lock_prompt_subtitle">Подтвердите отпечаток или лицо</string>
 </resources>

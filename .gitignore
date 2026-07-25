@@ -154,3 +154,6 @@ fabric.properties
 ### AndroidStudio Patch ###
 
 !/gradle/wrapper/gradle-wrapper.jar
+
+# Claude Code project guidance — local only, do not push
+CLAUDE.md
