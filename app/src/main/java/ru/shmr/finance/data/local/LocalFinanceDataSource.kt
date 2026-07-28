@@ -49,35 +49,12 @@ class LocalFinanceDataSource(
             endExclusive = endDate.plusDays(1).atStartOfDay().toString(),
         ).map { rows -> rows.mapNotNull(TransactionRecord::toDomainOrNull) }
 
-    fun observeTransactions(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): Flow<List<Transaction>> =
-        transactions.observeForAccountPeriod(
-            accountId = accountId,
-            startInclusive = startDate.atStartOfDay().toString(),
-            endExclusive = endDate.plusDays(1).atStartOfDay().toString(),
-        ).map { rows -> rows.mapNotNull(TransactionRecord::toDomainOrNull) }
-
     suspend fun getAccounts(): List<Account> = withContext(Dispatchers.IO) {
         accounts.getAll().map(AccountEntity::toDomain)
     }
 
     suspend fun getCategories(): List<Category> = withContext(Dispatchers.IO) {
         categories.getAll().map(CategoryEntity::toDomain)
-    }
-
-    suspend fun getTransactions(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): List<Transaction> = withContext(Dispatchers.IO) {
-        transactions.getForAccountPeriod(
-            accountId = accountId,
-            startInclusive = startDate.atStartOfDay().toString(),
-            endExclusive = endDate.plusDays(1).atStartOfDay().toString(),
-        ).mapNotNull(TransactionRecord::toDomainOrNull)
     }
 
     suspend fun getTransaction(localId: String): Transaction? = withContext(Dispatchers.IO) {

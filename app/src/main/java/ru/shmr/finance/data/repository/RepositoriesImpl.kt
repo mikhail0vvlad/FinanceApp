@@ -113,26 +113,6 @@ class TransactionsRepositoryImpl(
         endDate: LocalDate,
     ): Flow<List<Transaction>> = local.observeTransactions(startDate, endDate)
 
-    override fun observeTransactionsForPeriod(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): Flow<List<Transaction>> = local.observeTransactions(accountId, startDate, endDate)
-
-    override suspend fun getTransactionsForPeriod(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): AppResult<List<Transaction>> {
-        val refresh = refreshTransactionsForPeriod(accountId, startDate, endDate)
-        val cached = local.getTransactions(accountId, startDate, endDate)
-        return if (cached.isNotEmpty() || refresh is AppResult.Success) {
-            AppResult.Success(cached)
-        } else {
-            refresh as AppResult.Failure
-        }
-    }
-
     override suspend fun refreshTransactionsForPeriod(
         accountId: Int,
         startDate: LocalDate,

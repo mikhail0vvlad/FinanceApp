@@ -372,18 +372,6 @@ class TransactionEditorViewModelTest {
             endDate: LocalDate,
         ): Flow<List<Transaction>> = emptyFlow()
 
-        override fun observeTransactionsForPeriod(
-            accountId: Int,
-            startDate: LocalDate,
-            endDate: LocalDate,
-        ): Flow<List<Transaction>> = emptyFlow()
-
-        override suspend fun getTransactionsForPeriod(
-            accountId: Int,
-            startDate: LocalDate,
-            endDate: LocalDate,
-        ): AppResult<List<Transaction>> = AppResult.Success(emptyList())
-
         override suspend fun refreshTransactionsForPeriod(
             accountId: Int,
             startDate: LocalDate,

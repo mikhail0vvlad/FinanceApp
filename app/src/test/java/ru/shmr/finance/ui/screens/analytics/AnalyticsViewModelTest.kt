@@ -331,19 +331,6 @@ class AnalyticsViewModelTest {
             }
         }
 
-        override fun observeTransactionsForPeriod(
-            accountId: Int,
-            startDate: LocalDate,
-            endDate: LocalDate,
-        ): Flow<List<Transaction>> = cache.map { list -> list.filter { it.accountId == accountId } }
-
-        override suspend fun getTransactionsForPeriod(
-            accountId: Int,
-            startDate: LocalDate,
-            endDate: LocalDate,
-        ): AppResult<List<Transaction>> =
-            AppResult.Success(cache.value.filter { it.accountId == accountId })
-
         override suspend fun refreshTransactionsForPeriod(
             accountId: Int,
             startDate: LocalDate,

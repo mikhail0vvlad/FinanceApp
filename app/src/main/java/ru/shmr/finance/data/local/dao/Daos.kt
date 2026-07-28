@@ -71,38 +71,6 @@ interface TransactionDao {
     ): Flow<List<TransactionRecord>>
 
     @Transaction
-    @Query(
-        """
-        SELECT * FROM transactions
-        WHERE accountId = :accountId
-          AND transactionDate >= :startInclusive
-          AND transactionDate < :endExclusive
-        ORDER BY transactionDate DESC
-        """,
-    )
-    fun observeForAccountPeriod(
-        accountId: Int,
-        startInclusive: String,
-        endExclusive: String,
-    ): Flow<List<TransactionRecord>>
-
-    @Transaction
-    @Query(
-        """
-        SELECT * FROM transactions
-        WHERE accountId = :accountId
-          AND transactionDate >= :startInclusive
-          AND transactionDate < :endExclusive
-        ORDER BY transactionDate DESC
-        """,
-    )
-    suspend fun getForAccountPeriod(
-        accountId: Int,
-        startInclusive: String,
-        endExclusive: String,
-    ): List<TransactionRecord>
-
-    @Transaction
     @Query("SELECT * FROM transactions WHERE localId = :localId")
     suspend fun getRecordByLocalId(localId: String): TransactionRecord?
 

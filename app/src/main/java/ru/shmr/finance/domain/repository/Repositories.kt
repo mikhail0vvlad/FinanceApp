@@ -29,18 +29,6 @@ interface TransactionsRepository {
         endDate: LocalDate,
     ): Flow<List<Transaction>>
 
-    fun observeTransactionsForPeriod(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): Flow<List<Transaction>>
-
-    suspend fun getTransactionsForPeriod(
-        accountId: Int,
-        startDate: LocalDate,
-        endDate: LocalDate,
-    ): AppResult<List<Transaction>>
-
     suspend fun refreshTransactionsForPeriod(
         accountId: Int,
         startDate: LocalDate,
