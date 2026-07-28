@@ -156,12 +156,17 @@ class LocalFinanceDataSource(
             }
             val id = existing?.id ?: nextLocalAccountId()
             val action = existing?.syncAction?.afterLocalEdit() ?: SyncAction.CREATE
+            val syncBalance = resolveSyncBalance(
+                existingBalance = existing?.balance?.let(::BigDecimal) ?: BigDecimal.ZERO,
+                existingSyncBalance = existing?.syncBalance?.let(::BigDecimal) ?: BigDecimal.ZERO,
+                newBalance = draft.balance,
+            )
             val entity = AccountEntity(
                 id = id,
                 name = draft.name.trim(),
                 emoji = draft.emoji.trim().ifEmpty { "💳" },
                 balance = draft.balance.toPlainString(),
-                syncBalance = draft.balance.toPlainString(),
+                syncBalance = syncBalance.toPlainString(),
                 currency = draft.currency.code,
                 syncAction = action,
             )

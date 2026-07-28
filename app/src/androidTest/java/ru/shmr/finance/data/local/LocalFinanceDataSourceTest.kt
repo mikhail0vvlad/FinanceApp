@@ -19,7 +19,12 @@ import org.junit.runner.RunWith
 import ru.shmr.finance.data.local.entity.AccountEntity
 import ru.shmr.finance.data.local.entity.CategoryEntity
 import ru.shmr.finance.data.sync.PendingAccount
+import ru.shmr.finance.data.sync.PendingTransaction
 import ru.shmr.finance.data.sync.SyncAction
+import ru.shmr.finance.data.sync.SyncCallResult
+import ru.shmr.finance.data.sync.SyncEngine
+import ru.shmr.finance.data.sync.SyncOutcome
+import ru.shmr.finance.data.sync.SyncRemoteGateway
 import ru.shmr.finance.domain.model.AccountDraft
 import ru.shmr.finance.domain.model.Currency
 import ru.shmr.finance.domain.validation.TransactionDraft
@@ -187,6 +192,318 @@ class LocalFinanceDataSourceTest {
 
         assertTrue(result.isFailure)
         assertEquals(Currency.RUB, local.getAccounts().single().balance.currency)
+    }
+
+    @Test
+    fun nameOnlyEditPreservesPendingSyncBalance() = runTest {
+        seedAccountAndCategory()
+        saveExpense(accountId = 1, amount = "100.00")
+
+        val displayed = local.getAccounts().single()
+        assertEquals(BigDecimal("900.00"), displayed.balance.amount)
+
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "Обновлённое имя",
+                emoji = "💳",
+                balance = displayed.balance.amount,
+                currency = Currency.RUB,
+            ),
+        )
+
+        assertEquals(BigDecimal("900.00"), local.getAccounts().single().balance.amount)
+        assertEquals(
+            BigDecimal("1000.00"),
+            BigDecimal(local.pendingAccounts().single().balance),
+        )
+    }
+
+    @Test
+    fun manualBalanceEditWhilePendingExpenseExistsAppliesAsDelta() = runTest {
+        seedAccountAndCategory()
+        saveExpense(accountId = 1, amount = "100.00")
+
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "Основной",
+                emoji = "💳",
+                balance = BigDecimal("1200.00"),
+                currency = Currency.RUB,
+            ),
+        )
+
+        assertEquals(BigDecimal("1200.00"), local.getAccounts().single().balance.amount)
+        val pendingBaseBalance = BigDecimal(local.pendingAccounts().single().balance)
+        assertEquals(BigDecimal("1300.00"), pendingBaseBalance)
+        // Replaying the pending expense on top of the base sent to the server must
+        // land exactly on the balance the user set.
+        assertEquals(BigDecimal("1200.00"), pendingBaseBalance - BigDecimal("100.00"))
+    }
+
+    @Test
+    fun manualBalanceEditWhilePendingIncomeExistsAppliesAsDelta() = runTest {
+        seedAccountAndCategory()
+        local.upsertCategories(
+            listOf(CategoryEntity(20, "Зарплата", "💰", isIncome = true)),
+        )
+        local.saveTransaction(
+            draft = TransactionDraft(
+                accountId = 1,
+                categoryId = 20,
+                amount = "100",
+                date = LocalDate.of(2026, 7, 24),
+                time = LocalTime.NOON,
+                comment = null,
+            ),
+            normalizedAmount = BigDecimal("100.00"),
+            normalizedComment = null,
+            existingLocalId = null,
+        )
+        assertEquals(BigDecimal("1100.00"), local.getAccounts().single().balance.amount)
+
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "Основной",
+                emoji = "💳",
+                balance = BigDecimal("1300.00"),
+                currency = Currency.RUB,
+            ),
+        )
+
+        val pendingBaseBalance = BigDecimal(local.pendingAccounts().single().balance)
+        assertEquals(BigDecimal("1200.00"), pendingBaseBalance)
+        assertEquals(BigDecimal("1300.00"), pendingBaseBalance + BigDecimal("100.00"))
+    }
+
+    @Test
+    fun newOfflineAccountNameEditKeepsCreateBalanceAtInitialAmount() = runTest {
+        local.upsertCategories(
+            listOf(CategoryEntity(10, "Транспорт", "🚌", isIncome = false)),
+        )
+        val created = local.saveAccount(
+            AccountDraft(
+                name = "Офлайн",
+                emoji = "💳",
+                balance = BigDecimal("1000"),
+                currency = Currency.RUB,
+            ),
+        )
+        saveExpense(accountId = created.id, amount = "100")
+
+        val displayed = local.getAccounts().single()
+        assertEquals(BigDecimal("900"), displayed.balance.amount)
+
+        local.saveAccount(
+            AccountDraft(
+                id = created.id,
+                name = "Офлайн 2",
+                emoji = "💳",
+                balance = displayed.balance.amount,
+                currency = Currency.RUB,
+            ),
+        )
+
+        val pending = local.pendingAccounts().single()
+        assertEquals(SyncAction.CREATE, pending.action)
+        assertEquals(BigDecimal("1000"), BigDecimal(pending.balance))
+    }
+
+    @Test
+    fun accountWithoutPendingTransactionsSendsEditedBalanceDirectly() = runTest {
+        seedAccountAndCategory()
+
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "Основной",
+                emoji = "💳",
+                balance = BigDecimal("1200.00"),
+                currency = Currency.RUB,
+            ),
+        )
+
+        assertEquals(BigDecimal("1200.00"), local.getAccounts().single().balance.amount)
+        assertEquals(
+            BigDecimal("1200.00"),
+            BigDecimal(local.pendingAccounts().single().balance),
+        )
+    }
+
+    @Test
+    fun movingTransactionBetweenAccountsKeepsEachAccountsSyncBalanceIndependent() = runTest {
+        local.upsertRemoteAccounts(
+            listOf(
+                AccountEntity(
+                    id = 1,
+                    name = "A",
+                    emoji = "💳",
+                    balance = "1000.00",
+                    syncBalance = "1000.00",
+                    currency = "RUB",
+                ),
+                AccountEntity(
+                    id = 2,
+                    name = "B",
+                    emoji = "💳",
+                    balance = "500.00",
+                    syncBalance = "500.00",
+                    currency = "RUB",
+                ),
+            ),
+        )
+        local.upsertCategories(
+            listOf(CategoryEntity(10, "Транспорт", "🚌", isIncome = false)),
+        )
+
+        val saved = local.saveTransaction(
+            draft = TransactionDraft(
+                accountId = 1,
+                categoryId = 10,
+                amount = "100.00",
+                date = LocalDate.of(2026, 7, 24),
+                time = LocalTime.NOON,
+                comment = null,
+            ),
+            normalizedAmount = BigDecimal("100.00"),
+            normalizedComment = null,
+            existingLocalId = null,
+        )
+        // Move the same expense from account 1 to account 2.
+        local.saveTransaction(
+            draft = TransactionDraft(
+                accountId = 2,
+                categoryId = 10,
+                amount = "100.00",
+                date = LocalDate.of(2026, 7, 24),
+                time = LocalTime.NOON,
+                comment = null,
+            ),
+            normalizedAmount = BigDecimal("100.00"),
+            normalizedComment = null,
+            existingLocalId = saved.localId,
+        )
+
+        val accountsById = local.getAccounts().associateBy { it.id }
+        assertEquals(BigDecimal("1000.00"), accountsById.getValue(1).balance.amount)
+        assertEquals(BigDecimal("400.00"), accountsById.getValue(2).balance.amount)
+
+        // Account 1 no longer has a pending diff; a name-only edit must send its
+        // displayed balance unchanged.
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "A2",
+                emoji = "💳",
+                balance = BigDecimal("1000.00"),
+                currency = Currency.RUB,
+            ),
+        )
+        assertEquals(
+            BigDecimal("1000.00"),
+            BigDecimal(local.pendingAccounts().single { it.id == 1 }.balance),
+        )
+
+        // Account 2 carries the moved-in expense as a pending diff; a name-only edit
+        // must keep sending the pre-expense base (500.00), not the displayed 400.00.
+        local.saveAccount(
+            AccountDraft(
+                id = 2,
+                name = "B2",
+                emoji = "💳",
+                balance = BigDecimal("400.00"),
+                currency = Currency.RUB,
+            ),
+        )
+        assertEquals(
+            BigDecimal("500.00"),
+            BigDecimal(local.pendingAccounts().single { it.id == 2 }.balance),
+        )
+    }
+
+    @Test
+    fun syncEngineReplaysAccountUpdateThenTransactionAndMatchesDisplayedBalance() = runTest {
+        seedAccountAndCategory()
+        saveExpense(accountId = 1, amount = "100.00")
+        local.saveAccount(
+            AccountDraft(
+                id = 1,
+                name = "Основной",
+                emoji = "💳",
+                balance = BigDecimal("1200.00"),
+                currency = Currency.RUB,
+            ),
+        )
+
+        val remote = ServerBalanceGateway(expenseCategoryIds = setOf(10))
+        val outcome = SyncEngine(local, remote).sync()
+
+        assertEquals(SyncOutcome.SUCCESS, outcome)
+        assertEquals(BigDecimal("1200.00"), remote.serverBalances.getValue(1))
+        assertEquals(BigDecimal("1200.00"), local.getAccounts().single().balance.amount)
+    }
+
+    private class ServerBalanceGateway(
+        private val expenseCategoryIds: Set<Int>,
+    ) : SyncRemoteGateway {
+        val serverBalances = mutableMapOf<Int, BigDecimal>()
+        private var nextServerId = 1
+
+        override suspend fun createAccount(
+            account: PendingAccount,
+        ): SyncCallResult<PendingAccount> {
+            serverBalances[account.id] = BigDecimal(account.balance)
+            return SyncCallResult.Success(account.copy(action = SyncAction.NONE))
+        }
+
+        override suspend fun updateAccount(
+            account: PendingAccount,
+        ): SyncCallResult<PendingAccount> {
+            serverBalances[account.id] = BigDecimal(account.balance)
+            return SyncCallResult.Success(account.copy(action = SyncAction.NONE))
+        }
+
+        override suspend fun createTransaction(
+            transaction: PendingTransaction,
+        ): SyncCallResult<PendingTransaction> {
+            applyDelta(transaction)
+            return SyncCallResult.Success(
+                transaction.copy(serverId = nextServerId++, action = SyncAction.NONE),
+            )
+        }
+
+        override suspend fun updateTransaction(
+            transaction: PendingTransaction,
+        ): SyncCallResult<PendingTransaction> =
+            SyncCallResult.Success(transaction.copy(action = SyncAction.NONE))
+
+        private fun applyDelta(transaction: PendingTransaction) {
+            val signed = if (transaction.categoryId in expenseCategoryIds) {
+                BigDecimal(transaction.amount).negate()
+            } else {
+                BigDecimal(transaction.amount)
+            }
+            serverBalances[transaction.accountId] =
+                (serverBalances[transaction.accountId] ?: BigDecimal.ZERO) + signed
+        }
+    }
+
+    private suspend fun saveExpense(accountId: Int, amount: String) {
+        local.saveTransaction(
+            draft = TransactionDraft(
+                accountId = accountId,
+                categoryId = 10,
+                amount = amount,
+                date = LocalDate.of(2026, 7, 24),
+                time = LocalTime.NOON,
+                comment = null,
+            ),
+            normalizedAmount = BigDecimal(amount),
+            normalizedComment = null,
+            existingLocalId = null,
+        )
     }
 
     private suspend fun seedAccountAndCategory() {
