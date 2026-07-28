@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.di.ServiceLocator
@@ -30,6 +33,7 @@ class AnalyticsViewModel(
     private val accountsRepository: AccountsRepository = ServiceLocator.accountsRepository,
     private val categoriesRepository: CategoriesRepository = ServiceLocator.categoriesRepository,
     private val transactionsRepository: TransactionsRepository = ServiceLocator.transactionsRepository,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -110,10 +114,12 @@ class AnalyticsViewModel(
             val refreshError = refreshServerAccounts(accountsToQuery, filters)
 
             val accountIds = accountsToQuery.mapTo(mutableSetOf()) { it.id }
-            val cached = transactionsRepository
-                .observeTransactionsForPeriod(filters.startDate, filters.endDate)
-                .first()
-            val transactions = cached.filter { it.accountId in accountIds }
+            val transactions = withContext(computeDispatcher) {
+                transactionsRepository
+                    .observeTransactionsForPeriod(filters.startDate, filters.endDate)
+                    .first()
+                    .filter { it.accountId in accountIds }
+            }
 
             if (transactions.isEmpty()) {
                 if (refreshError != null) {
@@ -128,7 +134,9 @@ class AnalyticsViewModel(
                 _effects.emit(AnalyticsEffect.ShowError(refreshError))
             }
 
-            val ui = buildContent(transactions, filters, accountsToQuery.first())
+            val ui = withContext(computeDispatcher) {
+                buildContent(transactions, filters, accountsToQuery.first())
+            }
             _state.update { it.copy(ui = ui) }
         }
     }

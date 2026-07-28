@@ -1,7 +1,9 @@
 package ru.shmr.finance.ui.screens.analytics
 
 import java.math.BigDecimal
+import java.time.LocalDate
 import java.time.LocalDateTime
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,14 +34,14 @@ import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.domain.repository.CategoriesRepository
 import ru.shmr.finance.domain.repository.TransactionsRepository
 import ru.shmr.finance.domain.validation.TransactionDraft
-import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnalyticsViewModelTest {
 
     @Test
     fun `cached data from other account survives when one account refresh fails`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val tx1 = transaction(localId = "tx1", accountId = ACCOUNT_1.id, amount = BigDecimal("100"))
             val transactions = FakeTransactionsRepository(
@@ -49,6 +51,7 @@ class AnalyticsViewModelTest {
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1, ACCOUNT_2),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -63,13 +66,15 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `local account transactions are included and never trigger network refresh`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val localTx = transaction(localId = "local-tx", accountId = LOCAL_ACCOUNT.id, amount = BigDecimal("50"))
             val transactions = FakeTransactionsRepository(initialCache = listOf(localTx))
             val viewModel = createViewModel(
                 accounts = listOf(LOCAL_ACCOUNT),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -84,7 +89,8 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `empty cache and failed refresh surfaces Error`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val transactions = FakeTransactionsRepository(
                 initialCache = emptyList(),
@@ -93,6 +99,7 @@ class AnalyticsViewModelTest {
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -104,12 +111,14 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `successful sync with no transactions shows Empty`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val transactions = FakeTransactionsRepository(initialCache = emptyList())
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -121,13 +130,15 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `existing content is kept and ShowError emitted when refresh later fails`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val tx1 = transaction(localId = "tx1", accountId = ACCOUNT_1.id, amount = BigDecimal("100"))
             val transactions = FakeTransactionsRepository(initialCache = listOf(tx1))
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
             assertTrue(viewModel.state.value.ui is UiState.Content)
@@ -150,7 +161,8 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `selectedAccountId excludes other accounts data`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val tx1 = transaction(localId = "tx1", accountId = ACCOUNT_1.id, amount = BigDecimal("100"))
             val tx2 = transaction(localId = "tx2", accountId = ACCOUNT_2.id, amount = BigDecimal("200"))
@@ -158,6 +170,7 @@ class AnalyticsViewModelTest {
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1, ACCOUNT_2),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -173,7 +186,8 @@ class AnalyticsViewModelTest {
 
     @Test
     fun `different currencies are not summed together`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        Dispatchers.setMain(dispatcher)
         try {
             val txRub = transaction(
                 localId = "tx-rub",
@@ -193,6 +207,7 @@ class AnalyticsViewModelTest {
             val viewModel = createViewModel(
                 accounts = listOf(ACCOUNT_1),
                 transactionsRepository = transactions,
+                computeDispatcher = dispatcher,
             )
             advanceUntilIdle()
 
@@ -205,16 +220,60 @@ class AnalyticsViewModelTest {
         }
     }
 
+    @Test
+    fun `transactions outside the selected period are excluded and refresh receives the selected period`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            Dispatchers.setMain(dispatcher)
+            try {
+                val today = LocalDate.now()
+                val inRangeTx = transaction(
+                    localId = "in-range",
+                    accountId = ACCOUNT_1.id,
+                    amount = BigDecimal("100"),
+                    dateTime = today.atTime(12, 0),
+                )
+                val outOfRangeTx = transaction(
+                    localId = "out-of-range",
+                    accountId = ACCOUNT_1.id,
+                    amount = BigDecimal("999"),
+                    dateTime = today.minusMonths(2).atTime(12, 0),
+                )
+                val transactions = FakeTransactionsRepository(
+                    initialCache = listOf(inRangeTx, outOfRangeTx),
+                )
+                val viewModel = createViewModel(
+                    accounts = listOf(ACCOUNT_1),
+                    transactionsRepository = transactions,
+                    computeDispatcher = dispatcher,
+                )
+                advanceUntilIdle()
+
+                val data = (viewModel.state.value.ui as UiState.Content).data
+                assertEquals(listOf("in-range"), data.transactions.map { it.localId })
+
+                val expectedStart = today.withDayOfMonth(1)
+                assertEquals(
+                    listOf(Triple(ACCOUNT_1.id, expectedStart, today)),
+                    transactions.refreshedPeriods,
+                )
+            } finally {
+                Dispatchers.resetMain()
+            }
+        }
+
     private fun createViewModel(
         accounts: List<Account>,
         categories: List<Category> = listOf(EXPENSE_CATEGORY, INCOME_CATEGORY),
         transactionsRepository: FakeTransactionsRepository,
+        computeDispatcher: CoroutineDispatcher,
         startWithIncome: Boolean = false,
     ) = AnalyticsViewModel(
         startWithIncome = startWithIncome,
         accountsRepository = FakeAccountsRepository(accounts),
         categoriesRepository = FakeCategoriesRepository(categories),
         transactionsRepository = transactionsRepository,
+        computeDispatcher = computeDispatcher,
     )
 
     private fun transaction(
@@ -260,11 +319,17 @@ class AnalyticsViewModelTest {
     ) : TransactionsRepository {
         private val cache = MutableStateFlow(initialCache)
         val refreshedAccountIds = mutableListOf<Int>()
+        val refreshedPeriods = mutableListOf<Triple<Int, LocalDate, LocalDate>>()
 
         override fun observeTransactionsForPeriod(
             startDate: LocalDate,
             endDate: LocalDate,
-        ): Flow<List<Transaction>> = cache
+        ): Flow<List<Transaction>> = cache.map { list ->
+            list.filter { tx ->
+                val date = tx.dateTime.toLocalDate()
+                !date.isBefore(startDate) && !date.isAfter(endDate)
+            }
+        }
 
         override fun observeTransactionsForPeriod(
             accountId: Int,
@@ -286,6 +351,7 @@ class AnalyticsViewModelTest {
         ): AppResult<Unit> {
             check(accountId > 0) { "Must never refresh a negative (local) account id: $accountId" }
             refreshedAccountIds += accountId
+            refreshedPeriods += Triple(accountId, startDate, endDate)
             val failure = refreshFailures[accountId]
             return if (failure != null) AppResult.Failure(failure) else AppResult.Success(Unit)
         }
