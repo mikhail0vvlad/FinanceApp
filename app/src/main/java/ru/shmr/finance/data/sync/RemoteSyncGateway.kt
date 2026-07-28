@@ -76,7 +76,7 @@ class RemoteSyncGateway(
     override suspend fun updateTransaction(
         transaction: PendingTransaction,
     ): SyncCallResult<PendingTransaction> {
-        val serverId = transaction.serverId ?: return SyncCallResult.PermanentFailure
+        val serverId = transaction.serverId ?: return SyncCallResult.ItemPermanentFailure
         return safeApiCall {
             api.updateTransaction(serverId, transaction.toRequest())
         }.toSyncResult { response ->
@@ -109,6 +109,7 @@ private inline fun <T, R> AppResult<T>.toSyncResult(
     is AppResult.Success -> SyncCallResult.Success(transform(data))
     is AppResult.Failure -> when (error) {
         AppError.NoInternet, is AppError.Server -> SyncCallResult.RetryableFailure
-        AppError.Unauthorized, AppError.Unknown -> SyncCallResult.PermanentFailure
+        AppError.Unauthorized -> SyncCallResult.GlobalFatalFailure
+        AppError.Unknown -> SyncCallResult.ItemPermanentFailure
     }
 }

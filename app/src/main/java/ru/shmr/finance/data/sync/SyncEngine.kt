@@ -37,7 +37,12 @@ data class PendingTransaction(
 sealed interface SyncCallResult<out T> {
     data class Success<T>(val value: T) : SyncCallResult<T>
     data object RetryableFailure : SyncCallResult<Nothing>
-    data object PermanentFailure : SyncCallResult<Nothing>
+
+    /** Stops the whole sync run: no further remote calls are useful (e.g. auth is broken). */
+    data object GlobalFatalFailure : SyncCallResult<Nothing>
+
+    /** Only this item is broken; independent pending items must still be processed. */
+    data object ItemPermanentFailure : SyncCallResult<Nothing>
 }
 
 enum class SyncOutcome {
@@ -68,6 +73,9 @@ class SyncEngine(
 ) {
 
     suspend fun sync(): SyncOutcome {
+        var hadItemFailure = false
+        val blockedAccountIds = mutableSetOf<Int>()
+
         for (account in queue.pendingAccounts().sortedBy { it.id }) {
             val result = when (account.action) {
                 SyncAction.CREATE -> remote.createAccount(account)
@@ -81,11 +89,19 @@ class SyncEngine(
                     SyncAction.NONE -> Unit
                 }
                 SyncCallResult.RetryableFailure -> return SyncOutcome.RETRY
-                SyncCallResult.PermanentFailure -> return SyncOutcome.FAILURE
+                SyncCallResult.GlobalFatalFailure -> return SyncOutcome.FAILURE
+                SyncCallResult.ItemPermanentFailure -> {
+                    hadItemFailure = true
+                    if (account.action == SyncAction.CREATE) blockedAccountIds += account.id
+                }
             }
         }
 
         for (transaction in queue.pendingTransactions().sortedBy { it.transactionDate }) {
+            if (transaction.accountId in blockedAccountIds) {
+                hadItemFailure = true
+                continue
+            }
             val result = when (transaction.action) {
                 SyncAction.CREATE -> remote.createTransaction(transaction)
                 SyncAction.UPDATE -> remote.updateTransaction(transaction)
@@ -101,9 +117,10 @@ class SyncEngine(
                     SyncAction.NONE -> Unit
                 }
                 SyncCallResult.RetryableFailure -> return SyncOutcome.RETRY
-                SyncCallResult.PermanentFailure -> return SyncOutcome.FAILURE
+                SyncCallResult.GlobalFatalFailure -> return SyncOutcome.FAILURE
+                SyncCallResult.ItemPermanentFailure -> hadItemFailure = true
             }
         }
-        return SyncOutcome.SUCCESS
+        return if (hadItemFailure) SyncOutcome.FAILURE else SyncOutcome.SUCCESS
     }
 }

@@ -43,13 +43,125 @@ class SyncEngineTest {
             action = SyncAction.CREATE,
         )
         val queue = FakeSyncQueue(transactions = mutableListOf(pending))
-        val remote = FakeSyncRemote(failTransactionCreate = true)
+        val remote = FakeSyncRemote(
+            transactionCreateResult = { SyncCallResult.RetryableFailure },
+        )
 
         val outcome = SyncEngine(queue, remote).sync()
 
         assertEquals(SyncOutcome.RETRY, outcome)
         assertEquals(SyncAction.CREATE, queue.transactions.single().action)
         assertFalse(queue.transactions.single().serverId != null)
+    }
+
+    @Test
+    fun `item-permanent failure on one transaction does not block an independent transaction`() = runTest {
+        val queue = FakeSyncQueue(
+            transactions = mutableListOf(
+                transaction(localId = "broken", serverId = null, accountId = 1, action = SyncAction.CREATE),
+                transaction(localId = "healthy", serverId = null, accountId = 1, action = SyncAction.CREATE),
+            ),
+        )
+        val remote = FakeSyncRemote(
+            transactionCreateResult = { tx ->
+                if (tx.localId == "broken") {
+                    SyncCallResult.ItemPermanentFailure
+                } else {
+                    SyncCallResult.Success(tx.copy(serverId = 501, action = SyncAction.NONE))
+                }
+            },
+        )
+
+        val outcome = SyncEngine(queue, remote).sync()
+
+        assertEquals(SyncOutcome.FAILURE, outcome)
+        val broken = queue.transactions.single { it.localId == "broken" }
+        assertEquals(SyncAction.CREATE, broken.action)
+        assertEquals(null, broken.serverId)
+        val healthy = queue.transactions.single { it.localId == "healthy" }
+        assertEquals(SyncAction.NONE, healthy.action)
+        assertEquals(501, healthy.serverId)
+    }
+
+    @Test
+    fun `global fatal failure stops sync before any further remote calls`() = runTest {
+        val queue = FakeSyncQueue(
+            accounts = mutableListOf(account(id = -1, action = SyncAction.CREATE)),
+            transactions = mutableListOf(
+                transaction(localId = "dependent", serverId = null, accountId = -1, action = SyncAction.CREATE),
+            ),
+        )
+        val remote = FakeSyncRemote(
+            accountCreateResult = { SyncCallResult.GlobalFatalFailure },
+        )
+
+        val outcome = SyncEngine(queue, remote).sync()
+
+        assertEquals(SyncOutcome.FAILURE, outcome)
+        assertTrue(remote.attemptedTransactionLocalIds.isEmpty())
+        assertEquals(SyncAction.CREATE, queue.accounts.single().action)
+        assertEquals(SyncAction.CREATE, queue.transactions.single().action)
+    }
+
+    @Test
+    fun `item-permanent account create failure blocks only its dependent transaction`() = runTest {
+        val queue = FakeSyncQueue(
+            accounts = mutableListOf(account(id = -1, action = SyncAction.CREATE)),
+            transactions = mutableListOf(
+                transaction(localId = "blocked", serverId = null, accountId = -1, action = SyncAction.CREATE),
+                transaction(localId = "other", serverId = null, accountId = 5, action = SyncAction.CREATE),
+            ),
+        )
+        val remote = FakeSyncRemote(
+            accountCreateResult = { SyncCallResult.ItemPermanentFailure },
+        )
+
+        val outcome = SyncEngine(queue, remote).sync()
+
+        assertEquals(SyncOutcome.FAILURE, outcome)
+        assertEquals(listOf("other"), remote.attemptedTransactionLocalIds)
+        val blocked = queue.transactions.single { it.localId == "blocked" }
+        assertEquals(SyncAction.CREATE, blocked.action)
+        assertEquals(null, blocked.serverId)
+        val other = queue.transactions.single { it.localId == "other" }
+        assertEquals(SyncAction.NONE, other.action)
+        assertEquals(501, other.serverId)
+        assertEquals(SyncAction.CREATE, queue.accounts.single().action)
+    }
+
+    @Test
+    fun `permanent failure in one run does not starve an independent item in the next run`() = runTest {
+        val queue = FakeSyncQueue(
+            transactions = mutableListOf(
+                transaction(localId = "always-broken", serverId = null, accountId = 1, action = SyncAction.CREATE),
+            ),
+        )
+        val remote = FakeSyncRemote(
+            transactionCreateResult = { tx ->
+                if (tx.localId == "always-broken") {
+                    SyncCallResult.ItemPermanentFailure
+                } else {
+                    SyncCallResult.Success(tx.copy(serverId = 501, action = SyncAction.NONE))
+                }
+            },
+        )
+        val engine = SyncEngine(queue, remote)
+
+        assertEquals(SyncOutcome.FAILURE, engine.sync())
+
+        queue.transactions += transaction(
+            localId = "new-in-next-run",
+            serverId = null,
+            accountId = 1,
+            action = SyncAction.CREATE,
+        )
+
+        assertEquals(SyncOutcome.FAILURE, engine.sync())
+        val stillBroken = queue.transactions.single { it.localId == "always-broken" }
+        assertEquals(SyncAction.CREATE, stillBroken.action)
+        val newItem = queue.transactions.single { it.localId == "new-in-next-run" }
+        assertEquals(SyncAction.NONE, newItem.action)
+        assertEquals(501, newItem.serverId)
     }
 
     @Test
@@ -144,13 +256,17 @@ private class FakeSyncQueue(
 }
 
 private class FakeSyncRemote(
-    private val failTransactionCreate: Boolean = false,
+    private val accountCreateResult: (PendingAccount) -> SyncCallResult<PendingAccount> =
+        { account -> SyncCallResult.Success(account.copy(id = 101, action = SyncAction.NONE)) },
+    private val transactionCreateResult: (PendingTransaction) -> SyncCallResult<PendingTransaction> =
+        { tx -> SyncCallResult.Success(tx.copy(serverId = 501, action = SyncAction.NONE)) },
 ) : SyncRemoteGateway {
 
     val createdTransactions = mutableListOf<PendingTransaction>()
+    val attemptedTransactionLocalIds = mutableListOf<String>()
 
     override suspend fun createAccount(account: PendingAccount): SyncCallResult<PendingAccount> =
-        SyncCallResult.Success(account.copy(id = 101, action = SyncAction.NONE))
+        accountCreateResult(account)
 
     override suspend fun updateAccount(account: PendingAccount): SyncCallResult<PendingAccount> =
         SyncCallResult.Success(account.copy(action = SyncAction.NONE))
@@ -158,11 +274,10 @@ private class FakeSyncRemote(
     override suspend fun createTransaction(
         transaction: PendingTransaction,
     ): SyncCallResult<PendingTransaction> {
-        if (failTransactionCreate) return SyncCallResult.RetryableFailure
-        createdTransactions += transaction
-        return SyncCallResult.Success(
-            transaction.copy(serverId = 501, action = SyncAction.NONE),
-        )
+        attemptedTransactionLocalIds += transaction.localId
+        val result = transactionCreateResult(transaction)
+        if (result is SyncCallResult.Success) createdTransactions += transaction
+        return result
     }
 
     override suspend fun updateTransaction(
