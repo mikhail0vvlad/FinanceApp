@@ -14,12 +14,14 @@ import ru.shmr.finance.ui.screens.TransactionListViewModel
 class IncomeViewModel : TransactionListViewModel(
     isIncome = true,
     accountsRepository = ServiceLocator.accountsRepository,
+    categoriesRepository = ServiceLocator.categoriesRepository,
     transactionsRepository = ServiceLocator.transactionsRepository,
 )
 
 @Composable
 fun IncomeScreen(
     modifier: Modifier = Modifier,
+    onTransactionClick: (String) -> Unit = {},
     viewModel: IncomeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -27,6 +29,7 @@ fun IncomeScreen(
         state = state,
         caption = stringResource(R.string.income_total),
         onRetry = viewModel::retry,
+        onItemClick = onTransactionClick,
         modifier = modifier,
     )
 }

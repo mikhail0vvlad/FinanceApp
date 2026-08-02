@@ -10,4 +10,7 @@ data class Transaction(
     val comment: String?,
     val amount: Money,
     val dateTime: LocalDateTime,
+    val localId: String = id.toString(),
+    val serverId: Int? = id.takeIf { it > 0 },
+    val isPending: Boolean = false,
 )

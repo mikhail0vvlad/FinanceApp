@@ -2,6 +2,7 @@ package ru.shmr.finance.domain.model
 
 import java.math.BigDecimal
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class MoneyTest {
@@ -24,5 +25,27 @@ class MoneyTest {
     @Test
     fun `negative keeps sign before grouped digits`() {
         assertEquals("-1 500,5 ₽", Money(BigDecimal("-1500.50")).formatted())
+    }
+
+    @Test
+    fun `different currencies cannot be added without rate`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            Money(BigDecimal.TEN, Currency.RUB) +
+                Money(BigDecimal.ONE, Currency.USD)
+        }
+    }
+
+    @Test
+    fun `totals keep currencies in separate buckets`() {
+        val totals = MoneyTotals.of(
+            listOf(
+                Money(BigDecimal("10"), Currency.USD),
+                Money(BigDecimal("20"), Currency.RUB),
+                Money(BigDecimal("5"), Currency.USD),
+                Money(BigDecimal("3"), Currency.EUR),
+            ),
+        )
+
+        assertEquals("20 ₽ · 15 $ · 3 €", totals.formatted())
     }
 }

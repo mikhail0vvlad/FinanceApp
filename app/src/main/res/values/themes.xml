@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Base application theme. The actual UI is styled from Compose (Material 3). -->
-    <style name="Theme.SHMRFinance" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.SHMRFinance" parent="Theme.AppCompat.Light.NoActionBar" />
 
     <!-- Splash screen theme applied to the launcher activity. -->
     <style name="Theme.SHMRFinance.Splash" parent="Theme.SplashScreen">

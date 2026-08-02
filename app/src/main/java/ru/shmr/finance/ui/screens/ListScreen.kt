@@ -30,6 +30,7 @@ fun ListScreen(
     caption: String,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onItemClick: (String) -> Unit = {},
 ) {
     when (state) {
         UiState.Loading -> LoadingState(modifier)
@@ -42,22 +43,28 @@ fun ListScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             LazyColumn {
-                items(state.data.items, key = { it.id }) { ListItemRow(it) }
+                items(state.data.items, key = { it.id }) { item ->
+                    ListItemRow(item, onClick = { onItemClick(item.id) })
+                }
             }
         }
     }
 }
 
 fun Transaction.toListItem() = ListItemModel(
-    id = id.toString(),
+    id = localId,
     lead = LeadContent.Emoji(category.emoji),
     title = category.name,
+    subtitle = comment ?: if (isPending) "Ожидает синхронизации" else null,
     trailingText = amount.formatted(),
+    showArrow = true,
 )
 
 fun Account.toListItem() = ListItemModel(
     id = id.toString(),
-    lead = LeadContent.Emoji("💰"),
+    lead = LeadContent.Emoji(emoji),
     title = name,
+    subtitle = if (isPending) "Ожидает синхронизации" else null,
     trailingText = balance.formatted(),
+    showArrow = true,
 )

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +33,7 @@ class AnalyticsViewModel(
     private val accountsRepository: AccountsRepository = ServiceLocator.accountsRepository,
     private val categoriesRepository: CategoriesRepository = ServiceLocator.categoriesRepository,
     private val transactionsRepository: TransactionsRepository = ServiceLocator.transactionsRepository,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -105,12 +108,33 @@ class AnalyticsViewModel(
                 return@launch
             }
 
-            val transactions = when (val result = loadTransactions(accountsToQuery, filters)) {
-                is AppResult.Failure -> return@launch fail(result.error, hadContent)
-                is AppResult.Success -> result.data
+            // Room остаётся источником истины: сеть обновляется best-effort и только
+            // для серверных счетов (id > 0) — несинхронизированные локальные счета
+            // никогда не уходят в API.
+            val refreshError = refreshServerAccounts(accountsToQuery, filters)
+
+            val accountIds = accountsToQuery.mapTo(mutableSetOf()) { it.id }
+            val transactions = withContext(computeDispatcher) {
+                transactionsRepository
+                    .observeTransactionsForPeriod(filters.startDate, filters.endDate)
+                    .first()
+                    .filter { it.accountId in accountIds }
             }
 
-            val ui = withContext(Dispatchers.Default) {
+            if (transactions.isEmpty()) {
+                if (refreshError != null) {
+                    _state.update { it.copy(ui = UiState.Error(refreshError)) }
+                } else {
+                    _state.update { it.copy(ui = UiState.Empty) }
+                }
+                return@launch
+            }
+
+            if (refreshError != null) {
+                _effects.emit(AnalyticsEffect.ShowError(refreshError))
+            }
+
+            val ui = withContext(computeDispatcher) {
                 buildContent(transactions, filters, accountsToQuery.first())
             }
             _state.update { it.copy(ui = ui) }
@@ -126,14 +150,15 @@ class AnalyticsViewModel(
         }
     }
 
-    private suspend fun loadTransactions(
+    private suspend fun refreshServerAccounts(
         accounts: List<Account>,
         filters: AnalyticsFilters,
-    ): AppResult<List<Transaction>> = coroutineScope {
-        val results = accounts
+    ): AppError? = coroutineScope {
+        accounts
+            .filter { it.id > 0 }
             .map { account ->
                 async {
-                    transactionsRepository.getTransactionsForPeriod(
+                    transactionsRepository.refreshTransactionsForPeriod(
                         accountId = account.id,
                         startDate = filters.startDate,
                         endDate = filters.endDate,
@@ -141,10 +166,9 @@ class AnalyticsViewModel(
                 }
             }
             .map { it.await() }
-        results.filterIsInstance<AppResult.Failure>().firstOrNull()
-            ?: AppResult.Success(
-                results.filterIsInstance<AppResult.Success<List<Transaction>>>().flatMap { it.data },
-            )
+            .filterIsInstance<AppResult.Failure>()
+            .firstOrNull()
+            ?.error
     }
 
     private fun buildContent(
@@ -152,14 +176,19 @@ class AnalyticsViewModel(
         filters: AnalyticsFilters,
         anyAccount: Account,
     ): UiState<AnalyticsData> {
-        val filtered = transactions
+        val matching = transactions
             .filter { filters.type.matches(it.category.isIncome) }
             .filter { filters.selectedCategoryIds == null || it.category.id in filters.selectedCategoryIds }
             .sortedByDescending { it.dateTime }
 
-        if (filtered.isEmpty()) return UiState.Empty
+        if (matching.isEmpty()) return UiState.Empty
 
-        val currency = anyAccount.balance.currency
+        val currency = if (filters.selectedAccountId != null) {
+            anyAccount.balance.currency
+        } else {
+            matching.first().amount.currency
+        }
+        val filtered = matching.filter { it.amount.currency == currency }
         val total = filtered.fold(Money.ZERO.copy(currency = currency)) { acc, tx -> acc + tx.amount }
 
         val shares = filtered

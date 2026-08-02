@@ -4,4 +4,6 @@ data class Account(
     val id: Int,
     val name: String,
     val balance: Money,
+    val emoji: String = "💰",
+    val isPending: Boolean = false,
 )
