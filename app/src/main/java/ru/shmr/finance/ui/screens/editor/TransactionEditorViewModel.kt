@@ -18,6 +18,7 @@ import ru.shmr.finance.domain.repository.TransactionsRepository
 import ru.shmr.finance.domain.validation.TransactionDraft
 import ru.shmr.finance.domain.validation.TransactionDraftValidator
 import ru.shmr.finance.domain.validation.TransactionField
+import ru.shmr.finance.domain.validation.TransactionValidationError
 
 class TransactionEditorViewModel(
     private val isIncome: Boolean,
@@ -155,7 +156,7 @@ class TransactionEditorViewModel(
                 TransactionEditorPicker.DATE -> {
                     val value = current.pendingDate
                     val error = if (value == null) {
-                        "Выберите дату"
+                        TransactionValidationError.DATE_REQUIRED
                     } else {
                         TransactionDraftValidator.validateDate(value)
                     }
@@ -174,7 +175,7 @@ class TransactionEditorViewModel(
                 TransactionEditorPicker.TIME -> {
                     val value = current.pendingTime
                     val error = if (value == null) {
-                        "Введите время"
+                        TransactionValidationError.TIME_REQUIRED
                     } else {
                         TransactionDraftValidator.validateTime(value)
                     }
@@ -216,13 +217,11 @@ class TransactionEditorViewModel(
         }
         _state.update { it.copy(isSaving = true, activePicker = null) }
         viewModelScope.launch {
-            when (transactionsRepository.saveTransaction(draft, localId)) {
+            when (val result = transactionsRepository.saveTransaction(draft, localId)) {
                 is AppResult.Success -> _effects.emit(TransactionEditorEffect.Saved)
                 is AppResult.Failure -> {
                     _state.update { it.copy(isSaving = false) }
-                    _effects.emit(
-                        TransactionEditorEffect.ShowMessage("Не удалось сохранить операцию"),
-                    )
+                    _effects.emit(TransactionEditorEffect.ShowError(result.error))
                 }
             }
         }

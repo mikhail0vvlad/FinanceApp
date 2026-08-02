@@ -6,6 +6,8 @@ import java.time.LocalTime
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.Category
 import ru.shmr.finance.domain.validation.TransactionField
+import ru.shmr.finance.domain.validation.TransactionValidationError
+import ru.shmr.finance.domain.model.AppError
 
 @Immutable
 data class TransactionEditorTarget(
@@ -27,11 +29,11 @@ data class TransactionEditorState(
     val date: LocalDate = LocalDate.now(),
     val time: LocalTime = LocalTime.now().withSecond(0).withNano(0),
     val comment: String = "",
-    val errors: Map<TransactionField, String> = emptyMap(),
+    val errors: Map<TransactionField, TransactionValidationError> = emptyMap(),
     val activePicker: TransactionEditorPicker? = null,
     val pendingDate: LocalDate? = null,
     val pendingTime: LocalTime? = null,
-    val pickerError: String? = null,
+    val pickerError: TransactionValidationError? = null,
 )
 
 enum class TransactionEditorPicker {
@@ -56,7 +58,7 @@ sealed interface TransactionEditorAction {
 
 sealed interface TransactionEditorEffect {
     data object Saved : TransactionEditorEffect
-    data class ShowMessage(val message: String) : TransactionEditorEffect
+    data class ShowError(val error: AppError) : TransactionEditorEffect
 }
 
 data class TransactionEditorDraftSnapshot(

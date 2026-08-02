@@ -18,6 +18,7 @@ import ru.shmr.finance.data.local.entity.TransactionRecord
 import ru.shmr.finance.data.sync.PendingAccount
 import ru.shmr.finance.data.sync.PendingTransaction
 import ru.shmr.finance.data.sync.SyncAction
+import ru.shmr.finance.data.sync.SyncFailure
 import ru.shmr.finance.data.sync.SyncQueue
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.AccountDraft
@@ -79,9 +80,14 @@ class LocalFinanceDataSource(
                                 balance = cachedById[remoteAccount.id]?.balance
                                     ?: remoteAccount.balance,
                                 syncBalance = remoteAccount.balance,
+                                transactionSyncCursor = cachedById[remoteAccount.id]
+                                    ?.transactionSyncCursor,
                             )
                         } else {
-                            remoteAccount
+                            remoteAccount.copy(
+                                transactionSyncCursor = cachedById[remoteAccount.id]
+                                    ?.transactionSyncCursor,
+                            )
                         }
                     },
             )
@@ -100,24 +106,29 @@ class LocalFinanceDataSource(
     ) =
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val existingByServerId = remote.associate { row ->
-                    val serverId = requireNotNull(row.serverId)
-                    serverId to transactions.getByServerId(serverId)
-                }
+                val serverIds = remote.map { requireNotNull(it.serverId) }
+                val existingByServerId = serverIds
+                    .chunked(SQLITE_QUERY_ID_CHUNK_SIZE)
+                    .flatMap { transactions.getByServerIds(it) }
+                    .associateBy { requireNotNull(it.serverId) }
                 transactions.deleteSyncedForPeriod(
                     accountId = accountId,
                     startInclusive = startDate.atStartOfDay().toString(),
                     endExclusive = endDate.plusDays(1).atStartOfDay().toString(),
                 )
-                remote.forEach { row ->
+                val rowsToUpsert = remote.mapNotNull { row ->
                     val serverId = requireNotNull(row.serverId)
                     val existing = existingByServerId[serverId]
                     if (existing?.syncAction == null || existing.syncAction == SyncAction.NONE) {
-                        transactions.upsert(
-                            row.copy(localId = existing?.localId ?: "remote-$serverId"),
+                        row.copy(
+                            localId = existing?.localId ?: "remote-$serverId",
+                            revision = existing?.revision ?: row.revision,
                         )
+                    } else {
+                        null
                     }
                 }
+                transactions.upsertAll(rowsToUpsert)
             }
         }
 
@@ -146,6 +157,9 @@ class LocalFinanceDataSource(
                 syncBalance = syncBalance.toPlainString(),
                 currency = draft.currency.code,
                 syncAction = action,
+                revision = (existing?.revision ?: 0) + 1,
+                syncFailure = null,
+                transactionSyncCursor = existing?.transactionSyncCursor,
             )
             accounts.upsert(entity)
             entity.toDomain()
@@ -195,6 +209,8 @@ class LocalFinanceDataSource(
                 transactionDate = LocalDateTime.of(draft.date, draft.time).toString(),
                 comment = normalizedComment,
                 syncAction = existing?.syncAction?.afterLocalEdit() ?: SyncAction.CREATE,
+                revision = (existing?.revision ?: 0) + 1,
+                syncFailure = null,
             )
             transactions.upsert(entity)
             TransactionRecord(entity, updatedAccount, category)
@@ -214,70 +230,142 @@ class LocalFinanceDataSource(
     override suspend fun pendingTransactions(): List<PendingTransaction> =
         withContext(Dispatchers.IO) { transactions.getPending().map(TransactionEntity::toPending) }
 
-    override suspend fun replaceCreatedAccount(localId: Int, remote: PendingAccount) {
+    override suspend fun replaceCreatedAccount(sent: PendingAccount, remote: PendingAccount) {
         withContext(Dispatchers.IO) {
             database.withTransaction {
-                val localAccount = accounts.getById(localId)
-                accounts.upsert(
+                val localAccount = accounts.getById(sent.id) ?: return@withTransaction
+                val replacement = if (localAccount.revision == sent.revision) {
                     remote.toEntity().copy(
-                        balance = localAccount?.balance ?: remote.balance,
+                        balance = localAccount.balance,
                         syncBalance = remote.balance,
                         syncAction = SyncAction.NONE,
-                    ),
-                )
-                transactions.reassignAccount(localId, remote.id)
-                accounts.deleteById(localId)
+                        revision = localAccount.revision,
+                        syncFailure = null,
+                        transactionSyncCursor = localAccount.transactionSyncCursor,
+                    )
+                } else {
+                    localAccount.copy(
+                        id = remote.id,
+                        syncAction = SyncAction.UPDATE,
+                        syncFailure = null,
+                    )
+                }
+                accounts.upsert(replacement)
+                transactions.reassignAccount(sent.id, remote.id)
+                accounts.deleteById(sent.id)
             }
         }
     }
 
-    override suspend fun markAccountSynced(remote: PendingAccount) {
+    override suspend fun markAccountSynced(sent: PendingAccount, remote: PendingAccount) {
         withContext(Dispatchers.IO) {
-            val localAccount = accounts.getById(remote.id)
-            accounts.upsert(
-                remote.toEntity().copy(
-                    balance = localAccount?.balance ?: remote.balance,
-                    syncBalance = remote.balance,
-                    syncAction = SyncAction.NONE,
-                ),
-            )
+            database.withTransaction {
+                val localAccount = accounts.getById(sent.id) ?: return@withTransaction
+                if (localAccount.revision != sent.revision) return@withTransaction
+                accounts.upsert(
+                    remote.toEntity().copy(
+                        balance = localAccount.balance,
+                        syncBalance = remote.balance,
+                        syncAction = SyncAction.NONE,
+                        revision = localAccount.revision,
+                        syncFailure = null,
+                        transactionSyncCursor = localAccount.transactionSyncCursor,
+                    ),
+                )
+            }
         }
     }
 
     override suspend fun replaceCreatedTransaction(
-        localId: String,
+        sent: PendingTransaction,
         remote: PendingTransaction,
     ) {
         withContext(Dispatchers.IO) {
-            val existing = requireNotNull(transactions.getByLocalId(localId))
-            transactions.upsert(
-                existing.copy(
-                    serverId = remote.serverId,
-                    accountId = remote.accountId,
-                    categoryId = remote.categoryId,
-                    amount = remote.amount,
-                    transactionDate = remote.transactionDate.toString(),
-                    comment = remote.comment,
-                    syncAction = SyncAction.NONE,
-                ),
-            )
+            database.withTransaction {
+                val existing = transactions.getByLocalId(sent.localId) ?: return@withTransaction
+                val replacement = if (existing.revision == sent.revision) {
+                    existing.copy(
+                        serverId = remote.serverId,
+                        accountId = remote.accountId,
+                        categoryId = remote.categoryId,
+                        amount = remote.amount,
+                        transactionDate = remote.transactionDate.toString(),
+                        comment = remote.comment,
+                        syncAction = SyncAction.NONE,
+                        syncFailure = null,
+                    )
+                } else {
+                    existing.copy(
+                        serverId = remote.serverId,
+                        syncAction = SyncAction.UPDATE,
+                        syncFailure = null,
+                    )
+                }
+                transactions.upsert(replacement)
+            }
         }
     }
 
-    override suspend fun markTransactionSynced(remote: PendingTransaction) {
+    override suspend fun markTransactionSynced(
+        sent: PendingTransaction,
+        remote: PendingTransaction,
+    ) {
         withContext(Dispatchers.IO) {
-            val serverId = requireNotNull(remote.serverId)
-            val existing = requireNotNull(transactions.getByServerId(serverId))
-            transactions.upsert(
-                existing.copy(
-                    accountId = remote.accountId,
-                    categoryId = remote.categoryId,
-                    amount = remote.amount,
-                    transactionDate = remote.transactionDate.toString(),
-                    comment = remote.comment,
-                    syncAction = SyncAction.NONE,
-                ),
-            )
+            database.withTransaction {
+                val existing = transactions.getByLocalId(sent.localId) ?: return@withTransaction
+                if (existing.revision != sent.revision) return@withTransaction
+                transactions.upsert(
+                    existing.copy(
+                        serverId = remote.serverId,
+                        accountId = remote.accountId,
+                        categoryId = remote.categoryId,
+                        amount = remote.amount,
+                        transactionDate = remote.transactionDate.toString(),
+                        comment = remote.comment,
+                        syncAction = SyncAction.NONE,
+                        syncFailure = null,
+                    ),
+                )
+            }
+        }
+    }
+
+    override suspend fun markAccountFailed(sent: PendingAccount) {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val current = accounts.getById(sent.id) ?: return@withTransaction
+                if (current.revision == sent.revision) {
+                    accounts.upsert(current.copy(syncFailure = SyncFailure.ITEM_PERMANENT))
+                }
+            }
+        }
+    }
+
+    override suspend fun markTransactionFailed(sent: PendingTransaction) {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val current = transactions.getByLocalId(sent.localId) ?: return@withTransaction
+                if (current.revision == sent.revision) {
+                    transactions.upsert(current.copy(syncFailure = SyncFailure.ITEM_PERMANENT))
+                }
+            }
+        }
+    }
+
+    suspend fun transactionSyncStartDate(accountId: Int): LocalDate = withContext(Dispatchers.IO) {
+        accounts.getById(accountId)
+            ?.transactionSyncCursor
+            ?.let(LocalDate::parse)
+            ?.minusDays(SYNC_OVERLAP_DAYS)
+            ?: FULL_HISTORY_START
+    }
+
+    suspend fun markTransactionsSyncedThrough(accountId: Int, endDate: LocalDate) {
+        withContext(Dispatchers.IO) {
+            database.withTransaction {
+                val account = accounts.getById(accountId) ?: return@withTransaction
+                accounts.upsert(account.copy(transactionSyncCursor = endDate.toString()))
+            }
         }
     }
 }
@@ -291,6 +379,7 @@ fun AccountEntity.toDomain() = Account(
     balance = Money.parse(balance, currency),
     emoji = emoji,
     isPending = syncAction != SyncAction.NONE,
+    syncFailed = syncFailure != null,
 )
 
 fun CategoryEntity.toDomain() = Category(
@@ -315,6 +404,7 @@ fun TransactionRecord.toDomainOrNull(): Transaction? {
         localId = row.localId,
         serverId = row.serverId,
         isPending = row.syncAction != SyncAction.NONE,
+        syncFailed = row.syncFailure != null,
     )
 }
 
@@ -325,6 +415,8 @@ fun AccountEntity.toPending() = PendingAccount(
     balance = syncBalance,
     currency = currency,
     action = syncAction,
+    revision = revision,
+    failure = syncFailure,
 )
 
 fun PendingAccount.toEntity() = AccountEntity(
@@ -335,6 +427,8 @@ fun PendingAccount.toEntity() = AccountEntity(
     syncBalance = balance,
     currency = currency,
     syncAction = action,
+    revision = revision,
+    syncFailure = failure,
 )
 
 fun TransactionEntity.toPending() = PendingTransaction(
@@ -346,4 +440,10 @@ fun TransactionEntity.toPending() = PendingTransaction(
     transactionDate = LocalDateTime.parse(transactionDate),
     comment = comment,
     action = syncAction,
+    revision = revision,
+    failure = syncFailure,
 )
+
+private const val SYNC_OVERLAP_DAYS = 7L
+private const val SQLITE_QUERY_ID_CHUNK_SIZE = 900
+private val FULL_HISTORY_START: LocalDate = LocalDate.of(1970, 1, 1)

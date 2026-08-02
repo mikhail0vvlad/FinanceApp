@@ -67,6 +67,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -82,14 +84,13 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import ru.shmr.finance.R
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.Category
 import ru.shmr.finance.domain.validation.TransactionDraftValidator
 import ru.shmr.finance.domain.validation.TransactionField
+import ru.shmr.finance.domain.validation.TransactionValidationError
 
-private val EditorDateFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))
 private val EditorTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,6 +105,8 @@ fun TransactionEditorScreen(
     val amountFocusRequester = remember { FocusRequester() }
     val selectedCategory = state.categories.find { it.id == state.categoryId }
     val selectedAccount = state.accounts.find { it.id == state.accountId }
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM", locale) }
 
     LaunchedEffect(state.editingLocalId, state.isLoading) {
         if (state.editingLocalId == null && !state.isLoading) {
@@ -133,7 +136,7 @@ fun TransactionEditorScreen(
             HeroAmount(
                 amount = state.amount,
                 currencySymbol = selectedAccount?.balance?.currency?.symbol.orEmpty(),
-                error = state.errors[TransactionField.AMOUNT],
+                error = state.errors[TransactionField.AMOUNT]?.localized(),
                 enabled = !state.isSaving && !state.isLoading,
                 focusRequester = amountFocusRequester,
                 onAmountChanged = { onAction(TransactionEditorAction.AmountChanged(it)) },
@@ -142,9 +145,9 @@ fun TransactionEditorScreen(
 
             EditorParameterRow(
                 icon = Icons.Outlined.Sell,
-                label = "Статья",
+                label = stringResource(R.string.editor_category),
                 value = selectedCategory?.name.orEmpty(),
-                error = state.errors[TransactionField.CATEGORY],
+                error = state.errors[TransactionField.CATEGORY]?.localized(),
                 enabled = !state.isSaving,
                 onClick = {
                     leaveAmountInput()
@@ -157,9 +160,9 @@ fun TransactionEditorScreen(
             )
             EditorParameterRow(
                 icon = Icons.Outlined.CalendarMonth,
-                label = "Дата",
-                value = state.date.format(EditorDateFormatter),
-                error = state.errors[TransactionField.DATE],
+                label = stringResource(R.string.editor_date),
+                value = state.date.format(dateFormatter),
+                error = state.errors[TransactionField.DATE]?.localized(),
                 enabled = !state.isSaving,
                 onClick = {
                     leaveAmountInput()
@@ -172,9 +175,9 @@ fun TransactionEditorScreen(
             )
             EditorParameterRow(
                 icon = Icons.Outlined.Schedule,
-                label = "Время",
+                label = stringResource(R.string.editor_time),
                 value = state.time.format(EditorTimeFormatter),
-                error = state.errors[TransactionField.TIME],
+                error = state.errors[TransactionField.TIME]?.localized(),
                 enabled = !state.isSaving,
                 onClick = {
                     leaveAmountInput()
@@ -187,9 +190,9 @@ fun TransactionEditorScreen(
             )
             EditorParameterRow(
                 icon = Icons.Outlined.AccountBalanceWallet,
-                label = "Счёт",
+                label = stringResource(R.string.editor_account),
                 value = selectedAccount?.name.orEmpty(),
-                error = state.errors[TransactionField.ACCOUNT],
+                error = state.errors[TransactionField.ACCOUNT]?.localized(),
                 enabled = !state.isSaving,
                 onClick = {
                     leaveAmountInput()
@@ -205,7 +208,7 @@ fun TransactionEditorScreen(
                 value = state.comment,
                 onValueChange = { onAction(TransactionEditorAction.CommentChanged(it)) },
                 enabled = !state.isSaving,
-                label = { Text("Комментарий") },
+                label = { Text(stringResource(R.string.editor_comment)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Outlined.ChatBubbleOutline,
@@ -260,7 +263,7 @@ fun TransactionEditorScreen(
         )
         TransactionEditorPicker.DATE -> DatePickerOverlay(
             value = state.pendingDate,
-            error = state.pickerError,
+            error = state.pickerError?.localized(),
             onValueChanged = {
                 onAction(TransactionEditorAction.PickerDateChanged(it))
             },
@@ -269,7 +272,7 @@ fun TransactionEditorScreen(
         )
         TransactionEditorPicker.TIME -> TimePickerSheet(
             value = state.pendingTime ?: state.time,
-            error = state.pickerError,
+            error = state.pickerError?.localized(),
             onValueChanged = {
                 onAction(TransactionEditorAction.PickerTimeChanged(it))
             },
@@ -429,7 +432,7 @@ internal fun EditorParameterRow(
                 ),
             ) {
                 Text(
-                    text = value.ifBlank { "Выбрать" },
+                    text = value.ifBlank { stringResource(R.string.action_select) },
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -475,7 +478,7 @@ internal fun ConfirmButton(
         } else {
             Icon(
                 imageVector = Icons.Filled.Check,
-                contentDescription = "Сохранить",
+                contentDescription = stringResource(R.string.cd_save),
                 modifier = Modifier.size(30.dp),
             )
         }
@@ -498,7 +501,7 @@ private fun CategoryPickerSheet(
     onDismiss: () -> Unit,
 ) {
     SelectionPickerSheet(
-        title = "Статья",
+        title = stringResource(R.string.editor_category),
         items = categories.map { PickerItem(it.id, it.emoji, it.name) },
         selectedId = selectedId,
         onSelected = onSelected,
@@ -515,7 +518,7 @@ private fun AccountPickerSheet(
     onDismiss: () -> Unit,
 ) {
     SelectionPickerSheet(
-        title = "Счёт",
+        title = stringResource(R.string.editor_account),
         items = accounts.map {
             PickerItem(
                 id = it.id,
@@ -593,7 +596,7 @@ private fun SelectionPickerSheet(
                     if (item.id == selectedId) {
                         Icon(
                             imageVector = Icons.Filled.Check,
-                            contentDescription = "Выбрано",
+                            contentDescription = stringResource(R.string.cd_selected),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -615,6 +618,8 @@ private fun DatePickerOverlay(
     onApply: () -> Unit,
 ) {
     val selectedDate = value ?: LocalDate.now()
+    val locale = LocalConfiguration.current.locales[0]
+    val dateFormatter = remember(locale) { DateTimeFormatter.ofPattern("d MMMM", locale) }
     val selectedMillis = selectedDate
         .atStartOfDay(ZoneOffset.UTC)
         .toInstant()
@@ -657,7 +662,7 @@ private fun DatePickerOverlay(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Отменить выбор даты",
+                        contentDescription = stringResource(R.string.cd_clear_date),
                     )
                 }
                 Row(
@@ -668,12 +673,12 @@ private fun DatePickerOverlay(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            text = "Выберите дату",
+                            text = stringResource(R.string.editor_choose_date),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = value?.format(EditorDateFormatter).orEmpty(),
+                            text = value?.format(dateFormatter).orEmpty(),
                             style = MaterialTheme.typography.headlineMedium,
                             modifier = Modifier.padding(top = 8.dp),
                         )
@@ -744,7 +749,7 @@ private fun TimePickerSheet(
                 .padding(horizontal = 24.dp),
         ) {
             Text(
-                text = "Введите время",
+                text = stringResource(R.string.editor_enter_time),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -783,10 +788,25 @@ private fun PickerActions(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(onClick = onCancel) {
-            Text("Отменить")
+            Text(stringResource(R.string.action_cancel))
         }
         TextButton(onClick = onApply) {
-            Text("Применить")
+            Text(stringResource(R.string.action_apply))
         }
     }
 }
+
+@Composable
+private fun TransactionValidationError.localized(): String = stringResource(
+    when (this) {
+        TransactionValidationError.ACCOUNT_REQUIRED -> R.string.editor_error_account_required
+        TransactionValidationError.CATEGORY_REQUIRED -> R.string.editor_error_category_required
+        TransactionValidationError.AMOUNT_MUST_BE_POSITIVE -> R.string.editor_error_positive_amount
+        TransactionValidationError.DATE_TIME_INVALID -> R.string.editor_error_date_time
+        TransactionValidationError.DATE_OUT_OF_RANGE -> R.string.editor_error_date_range
+        TransactionValidationError.TIME_REQUIRES_MINUTE_PRECISION ->
+            R.string.editor_error_time_precision
+        TransactionValidationError.DATE_REQUIRED -> R.string.editor_error_date_required
+        TransactionValidationError.TIME_REQUIRED -> R.string.editor_error_time_required
+    },
+)

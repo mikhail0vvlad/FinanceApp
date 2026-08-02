@@ -21,15 +21,18 @@ import ru.shmr.finance.data.repository.AccountsRepositoryImpl
 import ru.shmr.finance.data.repository.CategoriesRepositoryImpl
 import ru.shmr.finance.data.repository.TransactionsRepositoryImpl
 import ru.shmr.finance.data.security.DataStorePinCredentialStorage
+import ru.shmr.finance.data.security.EncryptedApiTokenRepository
 import ru.shmr.finance.data.security.KeystoreCipher
 import ru.shmr.finance.data.security.SecurityRepositoryImpl
 import ru.shmr.finance.data.settings.DataStoreSettingsRepository
 import ru.shmr.finance.data.sync.RemoteSyncGateway
 import ru.shmr.finance.data.sync.SyncEngine
+import ru.shmr.finance.data.sync.SyncCoordinator
 import ru.shmr.finance.data.sync.SyncOutcome
 import ru.shmr.finance.data.sync.SyncScheduler
 import ru.shmr.finance.data.sync.WorkManagerSyncScheduler
 import ru.shmr.finance.domain.repository.AccountsRepository
+import ru.shmr.finance.domain.repository.ApiTokenRepository
 import ru.shmr.finance.domain.repository.CategoriesRepository
 import ru.shmr.finance.domain.repository.TransactionsRepository
 import ru.shmr.finance.domain.repository.SecurityRepository
@@ -45,7 +48,7 @@ object ServiceLocator {
 
     private val okHttpClient by lazy {
         OkHttpClient.Builder()
-            .addInterceptor(AuthInterceptor { BuildConfig.API_TOKEN })
+            .addInterceptor(AuthInterceptor { apiTokenRepository.currentToken() })
             .addInterceptor(RetryInterceptor())
             .apply {
                 if (BuildConfig.DEBUG) {
@@ -69,6 +72,7 @@ object ServiceLocator {
     private lateinit var local: LocalFinanceDataSource
     private lateinit var scheduler: SyncScheduler
     private lateinit var syncEngine: SyncEngine
+    private val syncCoordinator = SyncCoordinator()
 
     lateinit var networkMonitor: NetworkMonitor
         private set
@@ -83,6 +87,8 @@ object ServiceLocator {
         private set
     lateinit var securityRepository: SecurityRepository
         private set
+    lateinit var apiTokenRepository: ApiTokenRepository
+        private set
 
     @Synchronized
     fun initialize(context: Context) {
@@ -92,9 +98,16 @@ object ServiceLocator {
             appContext,
             FinanceDatabase::class.java,
             "finance.db",
-        ).build()
+        )
+            .addMigrations(FinanceDatabase.MIGRATION_1_2)
+            .build()
         local = LocalFinanceDataSource(database)
         scheduler = WorkManagerSyncScheduler(appContext)
+        apiTokenRepository = EncryptedApiTokenRepository(
+            context = appContext,
+            initialToken = BuildConfig.API_TOKEN,
+            onTokenChanged = scheduler::enqueueOneTime,
+        )
         syncEngine = SyncEngine(local, RemoteSyncGateway(api))
         accountsRepository = AccountsRepositoryImpl(api, local, scheduler)
         categoriesRepository = CategoriesRepositoryImpl(api, local)
@@ -107,26 +120,31 @@ object ServiceLocator {
         )
         networkMonitor = NetworkMonitor(appContext, scheduler).also { it.start() }
         scheduler.ensurePeriodic()
-        scheduler.enqueueOneTime()
+        if (apiTokenRepository.hasToken.value) scheduler.enqueueOneTime()
     }
 
-    suspend fun syncAll(): SyncOutcome {
+    suspend fun syncAll(): SyncOutcome = syncCoordinator.run {
+        if (!apiTokenRepository.hasToken.value) return@run SyncOutcome.FAILURE
         val pendingOutcome = syncEngine.sync()
-        if (pendingOutcome != SyncOutcome.SUCCESS) return pendingOutcome
+        when (pendingOutcome) {
+            SyncOutcome.RETRY, SyncOutcome.FAILURE -> return@run pendingOutcome
+            SyncOutcome.SUCCESS, SyncOutcome.PARTIAL_FAILURE -> Unit
+        }
 
-        accountsRepository.refreshAccounts().syncFailureOrNull()?.let { return it }
-        categoriesRepository.refreshCategories().syncFailureOrNull()?.let { return it }
+        accountsRepository.refreshAccounts().syncFailureOrNull()?.let { return@run it }
+        categoriesRepository.refreshCategories().syncFailureOrNull()?.let { return@run it }
         val accounts = local.getAccounts()
-        val start = LocalDate.of(1970, 1, 1)
         val end = LocalDate.now().plusDays(1)
         accounts.filter { it.id > 0 }.forEach { account ->
+            val start = local.transactionSyncStartDate(account.id)
             transactionsRepository.refreshTransactionsForPeriod(
                 accountId = account.id,
                 startDate = start,
                 endDate = end,
-            ).syncFailureOrNull()?.let { return it }
+            ).syncFailureOrNull()?.let { return@run it }
+            local.markTransactionsSyncedThrough(account.id, end)
         }
-        return SyncOutcome.SUCCESS
+        pendingOutcome
     }
 }
 
@@ -134,6 +152,11 @@ private fun AppResult<Unit>.syncFailureOrNull(): SyncOutcome? = when (this) {
     is AppResult.Success -> null
     is AppResult.Failure -> when (error) {
         AppError.NoInternet, is AppError.Server -> SyncOutcome.RETRY
-        AppError.Unauthorized, AppError.Unknown -> SyncOutcome.FAILURE
+        AppError.Unauthorized,
+        is AppError.Client,
+        is AppError.Validation,
+        AppError.Storage,
+        AppError.Unknown,
+        -> SyncOutcome.FAILURE
     }
 }

@@ -15,12 +15,12 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "ru.shmr.finance"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ru.shmr.finance"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -37,13 +37,21 @@ android {
         buildConfigField(
             "String",
             "API_TOKEN",
-            "\"${localProperties.getProperty("API_TOKEN") ?: ""}\"",
+            "\"\"",
         )
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "API_TOKEN",
+                "\"${localProperties.getProperty("API_TOKEN") ?: ""}\"",
+            )
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -61,6 +69,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
+    bundle {
+        language {
+            enableSplit = false
+        }
     }
 }
 

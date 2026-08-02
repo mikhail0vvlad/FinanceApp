@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,12 +37,14 @@ class AnalyticsViewModel(
     private val categoriesRepository: CategoriesRepository = ServiceLocator.categoriesRepository,
     private val transactionsRepository: TransactionsRepository = ServiceLocator.transactionsRepository,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
         AnalyticsState(
             filters = AnalyticsFilters.default(
                 if (startWithIncome) TypeFilter.INCOME else TypeFilter.EXPENSES,
+                today = LocalDate.now(clock),
             ),
         ),
     )
@@ -59,7 +64,7 @@ class AnalyticsViewModel(
             is AnalyticsAction.SelectType ->
                 applyFilters { copy(type = action.type, selectedCategoryIds = null) }
             is AnalyticsAction.SelectPreset -> applyFilters {
-                val (start, end) = AnalyticsFilters.periodFor(action.preset)
+                val (start, end) = AnalyticsFilters.periodFor(action.preset, LocalDate.now(clock))
                 copy(preset = action.preset, startDate = start, endDate = end)
             }
             is AnalyticsAction.SelectCustomPeriod -> applyFilters {
@@ -154,21 +159,26 @@ class AnalyticsViewModel(
         accounts: List<Account>,
         filters: AnalyticsFilters,
     ): AppError? = coroutineScope {
-        accounts
-            .filter { it.id > 0 }
-            .map { account ->
-                async {
-                    transactionsRepository.refreshTransactionsForPeriod(
-                        accountId = account.id,
-                        startDate = filters.startDate,
-                        endDate = filters.endDate,
-                    )
+        var firstFailure: AppError? = null
+        accounts.filter { it.id > 0 }
+            .chunked(MAX_PARALLEL_REFRESHES)
+            .forEach { batch ->
+                batch.map { account ->
+                    async {
+                        transactionsRepository.refreshTransactionsForPeriod(
+                            accountId = account.id,
+                            startDate = filters.startDate,
+                            endDate = filters.endDate,
+                        )
+                    }
                 }
+                    .awaitAll()
+                    .filterIsInstance<AppResult.Failure>()
+                    .firstOrNull()
+                    ?.error
+                    ?.let { if (firstFailure == null) firstFailure = it }
             }
-            .map { it.await() }
-            .filterIsInstance<AppResult.Failure>()
-            .firstOrNull()
-            ?.error
+        firstFailure
     }
 
     private fun buildContent(
@@ -211,5 +221,9 @@ class AnalyticsViewModel(
             .sortedByDescending { it.amount.amount }
 
         return UiState.Content(AnalyticsData(total = total, shares = shares, transactions = filtered))
+    }
+
+    private companion object {
+        const val MAX_PARALLEL_REFRESHES = 4
     }
 }

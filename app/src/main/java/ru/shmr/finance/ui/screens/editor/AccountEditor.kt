@@ -43,11 +43,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ru.shmr.finance.R
 import ru.shmr.finance.domain.model.Currency
 
 @Composable
@@ -88,18 +90,18 @@ fun AccountEditorScreen(
             HeroAmount(
                 amount = state.balance,
                 currencySymbol = state.currency.symbol,
-                error = state.errors[AccountEditorField.BALANCE],
+                error = state.errors[AccountEditorField.BALANCE]?.localized(),
                 enabled = !state.isSaving && !state.isLoading,
                 focusRequester = balanceFocusRequester,
                 onAmountChanged = { onAction(AccountEditorAction.BalanceChanged(it)) },
                 onDone = { onAction(AccountEditorAction.Save) },
-                label = "Корректировка баланса",
+                label = stringResource(R.string.editor_balance_adjustment),
             )
 
             AccountIdentityFields(
                 emoji = state.emoji,
                 name = state.name,
-                nameError = state.errors[AccountEditorField.NAME],
+                nameError = state.errors[AccountEditorField.NAME]?.localized(),
                 enabled = !state.isSaving && !state.isLoading,
                 onEmojiChanged = { onAction(AccountEditorAction.EmojiChanged(it)) },
                 onNameChanged = { onAction(AccountEditorAction.NameChanged(it)) },
@@ -107,9 +109,9 @@ fun AccountEditorScreen(
 
             EditorParameterRow(
                 icon = Icons.Outlined.CurrencyExchange,
-                label = "Валюта",
+                label = stringResource(R.string.editor_currency),
                 value = state.currency.shortLabel(),
-                error = state.errors[AccountEditorField.CURRENCY],
+                error = state.errors[AccountEditorField.CURRENCY]?.localized(),
                 enabled = !state.isSaving && !state.isLoading,
                 onClick = {
                     leaveInput()
@@ -179,7 +181,7 @@ private fun AccountIdentityFields(
                 onValueChange = onNameChanged,
                 enabled = enabled,
                 singleLine = true,
-                label = { Text("Название счёта") },
+                label = { Text(stringResource(R.string.editor_account_name)) },
                 isError = nameError != null,
                 supportingText = nameError?.let { message -> { Text(message) } },
                 keyboardOptions = KeyboardOptions(
@@ -207,7 +209,7 @@ private fun CurrencyPickerSheet(
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
         Text(
-            text = "Валюта",
+            text = stringResource(R.string.editor_currency),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -242,7 +244,7 @@ private fun CurrencyPickerSheet(
                     if (currency == selected) {
                         Icon(
                             imageVector = Icons.Filled.Check,
-                            contentDescription = "Выбрано",
+                            contentDescription = stringResource(R.string.cd_selected),
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
@@ -254,13 +256,16 @@ private fun CurrencyPickerSheet(
     }
 }
 
-private fun Currency.displayName(): String = when (this) {
-    Currency.RUB -> "Российский рубль"
-    Currency.USD -> "Доллар США"
-    Currency.EUR -> "Евро"
-    Currency.GBP -> "Фунт стерлингов"
-    Currency.CNY -> "Китайский юань"
-}
+@Composable
+private fun Currency.displayName(): String = stringResource(
+    when (this) {
+        Currency.RUB -> R.string.currency_rub
+        Currency.USD -> R.string.currency_usd
+        Currency.EUR -> R.string.currency_eur
+        Currency.GBP -> R.string.currency_gbp
+        Currency.CNY -> R.string.currency_cny
+    },
+)
 
 private fun Currency.flagEmoji(): String = when (this) {
     Currency.RUB -> "🇷🇺"
@@ -270,10 +275,20 @@ private fun Currency.flagEmoji(): String = when (this) {
     Currency.CNY -> "🇨🇳"
 }
 
+@Composable
 private fun Currency.shortLabel(): String = when (this) {
-    Currency.RUB -> "Руб."
+    Currency.RUB -> stringResource(R.string.currency_rub_short)
     Currency.USD -> "$"
     Currency.EUR -> "€"
     Currency.GBP -> "£"
     Currency.CNY -> "¥"
 }
+
+@Composable
+private fun AccountEditorError.localized(): String = stringResource(
+    when (this) {
+        AccountEditorError.NAME_REQUIRED -> R.string.editor_error_account_name
+        AccountEditorError.BALANCE_NON_NEGATIVE -> R.string.editor_error_non_negative_balance
+        AccountEditorError.CURRENCY_HAS_HISTORY -> R.string.editor_error_currency_history
+    },
+)

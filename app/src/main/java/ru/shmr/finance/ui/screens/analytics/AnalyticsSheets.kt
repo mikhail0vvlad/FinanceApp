@@ -236,12 +236,9 @@ fun PeriodFilterSheet(
     }
 }
 
-private val CustomPeriodLocale: Locale = Locale("ru")
-private val CustomPeriodFieldFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofPattern("d MMM yyyy", CustomPeriodLocale)
-
-private fun formatFieldDate(millis: Long?): String = millis?.let {
-    Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().format(CustomPeriodFieldFormatter)
+private fun formatFieldDate(millis: Long?, locale: Locale): String = millis?.let {
+    val formatter = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
+    Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().format(formatter)
 } ?: ""
 
 @Composable
@@ -274,13 +271,12 @@ fun CustomPeriodSheet(
     onDismiss: () -> Unit,
 ) {
     FilterSheet(onDismiss, containerColor = MaterialTheme.colorScheme.surfaceContainerLowest) {
-        // Force a Russian, Monday-first calendar regardless of the device locale,
-        // so the picker reads as neatly as the Figma design.
         val baseConfiguration = LocalConfiguration.current
-        val ruConfiguration = remember(baseConfiguration) {
-            Configuration(baseConfiguration).apply { setLocale(CustomPeriodLocale) }
+        val appLocale = baseConfiguration.locales[0]
+        val localizedConfiguration = remember(baseConfiguration, appLocale) {
+            Configuration(baseConfiguration).apply { setLocale(appLocale) }
         }
-        CompositionLocalProvider(LocalConfiguration provides ruConfiguration) {
+        CompositionLocalProvider(LocalConfiguration provides localizedConfiguration) {
             val pickerState = rememberDateRangePickerState(
                 initialSelectedStartDateMillis = initialStart.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
                 initialSelectedEndDateMillis = initialEnd.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
@@ -296,7 +292,7 @@ fun CustomPeriodSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 DateField(
-                    text = formatFieldDate(pickerState.selectedStartDateMillis),
+                    text = formatFieldDate(pickerState.selectedStartDateMillis, appLocale),
                     modifier = Modifier.weight(1f),
                 )
                 Text(
@@ -305,7 +301,7 @@ fun CustomPeriodSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 DateField(
-                    text = formatFieldDate(pickerState.selectedEndDateMillis),
+                    text = formatFieldDate(pickerState.selectedEndDateMillis, appLocale),
                     modifier = Modifier.weight(1f),
                 )
             }

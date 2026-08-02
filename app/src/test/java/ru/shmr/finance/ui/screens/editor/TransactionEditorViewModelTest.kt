@@ -144,7 +144,7 @@ class TransactionEditorViewModelTest {
             advanceUntilIdle()
 
             assertEquals(
-                TransactionEditorEffect.ShowMessage("Не удалось сохранить операцию"),
+                TransactionEditorEffect.ShowError(AppError.Unknown),
                 effect.await(),
             )
             assertFalse(viewModel.state.value.isSaving)

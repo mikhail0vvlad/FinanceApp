@@ -17,9 +17,6 @@ import ru.shmr.finance.domain.model.Currency
 import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.domain.validation.MoneyInputParser
 
-internal const val CURRENCY_HISTORY_MESSAGE =
-    "Валюту счёта с операциями изменить нельзя: без курса история будет пересчитана неверно"
-
 class AccountEditorViewModel(
     private val accountId: Int?,
     private val accountsRepository: AccountsRepository,
@@ -81,7 +78,7 @@ class AccountEditorViewModel(
             val account = accounts.find { it.id == id }
             if (account == null) {
                 _state.update { it.copy(isLoading = false) }
-                _effects.emit(AccountEditorEffect.ShowMessage("Счёт не найден"))
+                _effects.emit(AccountEditorEffect.ShowMessage(AccountEditorMessage.ACCOUNT_NOT_FOUND))
                 return@launch
             }
             val hasHistory = accountsRepository.hasTransactions(id)
@@ -114,10 +111,12 @@ class AccountEditorViewModel(
             _state.update {
                 it.copy(
                     errors = it.errors +
-                        (AccountEditorField.CURRENCY to CURRENCY_HISTORY_MESSAGE),
+                        (AccountEditorField.CURRENCY to AccountEditorError.CURRENCY_HAS_HISTORY),
                 )
             }
-            _effects.tryEmit(AccountEditorEffect.ShowMessage(CURRENCY_HISTORY_MESSAGE))
+            _effects.tryEmit(
+                AccountEditorEffect.ShowMessage(AccountEditorMessage.CURRENCY_HAS_HISTORY),
+            )
             return
         }
         _state.update {
@@ -139,10 +138,12 @@ class AccountEditorViewModel(
                 it.copy(
                     activePicker = null,
                     errors = it.errors +
-                        (AccountEditorField.CURRENCY to CURRENCY_HISTORY_MESSAGE),
+                        (AccountEditorField.CURRENCY to AccountEditorError.CURRENCY_HAS_HISTORY),
                 )
             }
-            _effects.tryEmit(AccountEditorEffect.ShowMessage(CURRENCY_HISTORY_MESSAGE))
+            _effects.tryEmit(
+                AccountEditorEffect.ShowMessage(AccountEditorMessage.CURRENCY_HAS_HISTORY),
+            )
             return
         }
         _state.update {
@@ -161,17 +162,17 @@ class AccountEditorViewModel(
         val balance = MoneyInputParser.parse(current.balance)
         val errors = buildMap {
             if (current.name.isBlank()) {
-                put(AccountEditorField.NAME, "Введите название")
+                put(AccountEditorField.NAME, AccountEditorError.NAME_REQUIRED)
             }
             if (balance == null || balance < BigDecimal.ZERO) {
-                put(AccountEditorField.BALANCE, "Введите неотрицательный баланс")
+                put(AccountEditorField.BALANCE, AccountEditorError.BALANCE_NON_NEGATIVE)
             }
             if (
                 current.hasTransactionHistory &&
                 current.originalCurrency != null &&
                 current.currency != current.originalCurrency
             ) {
-                put(AccountEditorField.CURRENCY, CURRENCY_HISTORY_MESSAGE)
+                put(AccountEditorField.CURRENCY, AccountEditorError.CURRENCY_HAS_HISTORY)
             }
         }
         if (errors.isNotEmpty()) {
@@ -194,9 +195,7 @@ class AccountEditorViewModel(
                 is AppResult.Success -> _effects.emit(AccountEditorEffect.Saved)
                 is AppResult.Failure -> {
                     _state.update { it.copy(isSaving = false) }
-                    _effects.emit(
-                        AccountEditorEffect.ShowMessage("Не удалось сохранить счёт"),
-                    )
+                    _effects.emit(AccountEditorEffect.ShowError(result.error))
                 }
             }
         }

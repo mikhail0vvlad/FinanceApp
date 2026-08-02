@@ -170,12 +170,12 @@ class AccountEditorViewModelTest {
             viewModel.onAction(AccountEditorAction.OpenCurrencyPicker)
 
             assertEquals(
-                AccountEditorEffect.ShowMessage(CURRENCY_HISTORY_MESSAGE),
+                AccountEditorEffect.ShowMessage(AccountEditorMessage.CURRENCY_HAS_HISTORY),
                 effect.await(),
             )
             assertEquals(Currency.EUR, viewModel.state.value.currency)
             assertEquals(
-                CURRENCY_HISTORY_MESSAGE,
+                AccountEditorError.CURRENCY_HAS_HISTORY,
                 viewModel.state.value.errors[AccountEditorField.CURRENCY],
             )
             assertNull(viewModel.state.value.activePicker)

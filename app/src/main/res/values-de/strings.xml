@@ -1,4 +1,47 @@
 <resources>
+    <string name="action_select">Auswählen</string>
+    <string name="cd_save">Speichern</string>
+    <string name="cd_selected">Ausgewählt</string>
+    <string name="cd_clear_date">Datumsauswahl löschen</string>
+    <string name="editor_balance_adjustment">Kontostand anpassen</string>
+    <string name="editor_currency">Währung</string>
+    <string name="editor_account_name">Kontoname</string>
+    <string name="editor_category">Kategorie</string>
+    <string name="editor_date">Datum</string>
+    <string name="editor_time">Uhrzeit</string>
+    <string name="editor_account">Konto</string>
+    <string name="editor_comment">Kommentar</string>
+    <string name="editor_choose_date">Datum auswählen</string>
+    <string name="editor_enter_time">Uhrzeit eingeben</string>
+    <string name="editor_account_not_found">Konto nicht gefunden</string>
+    <string name="editor_error_account_name">Namen eingeben</string>
+    <string name="editor_error_non_negative_balance">Nicht negativen Kontostand eingeben</string>
+    <string name="editor_error_currency_history">Die Währung eines Kontos mit Buchungen kann ohne Wechselkurse nicht geändert werden</string>
+    <string name="editor_error_account_required">Konto auswählen</string>
+    <string name="editor_error_category_required">Kategorie auswählen</string>
+    <string name="editor_error_positive_amount">Betrag größer als null eingeben</string>
+    <string name="editor_error_date_time">Gültiges Datum und Uhrzeit auswählen</string>
+    <string name="editor_error_date_range">Datum liegt außerhalb des zulässigen Bereichs</string>
+    <string name="editor_error_time_precision">Uhrzeit minutengenau eingeben</string>
+    <string name="editor_error_date_required">Datum auswählen</string>
+    <string name="editor_error_time_required">Uhrzeit eingeben</string>
+    <string name="currency_rub_short">RUB</string>
+    <string name="error_client">Der Server hat die Anfrage abgelehnt (Code %1$d)</string>
+    <string name="error_storage">Daten konnten auf diesem Gerät nicht gespeichert werden</string>
+    <string name="validation_account_name_required">Kontonamen eingeben</string>
+    <string name="validation_balance_negative">Der Kontostand darf nicht negativ sein</string>
+    <string name="validation_account_currency_locked">Die Währung eines Kontos mit Buchungen kann nicht geändert werden</string>
+    <string name="validation_transaction_invalid">Transaktionsdaten prüfen</string>
+    <string name="validation_api_token_required">API-Token eingeben</string>
+    <string name="settings_api_token">API-Zugriff</string>
+    <string name="settings_api_token_set">Eingerichtet</string>
+    <string name="settings_api_token_not_set">Nicht eingerichtet</string>
+    <string name="settings_api_token_explanation">Das Token wird auf diesem Gerät verschlüsselt und nicht in die Release-App eingebettet.</string>
+    <string name="settings_api_token_input">Neues API-Token</string>
+    <string name="settings_api_token_saved">Token gespeichert. Synchronisierung gestartet</string>
+    <string name="settings_api_token_replace_hint">Ein Token ist eingerichtet. Zum Ersetzen ein neues eingeben</string>
+    <string name="sync_status_pending">Synchronisierung ausstehend</string>
+    <string name="sync_status_failed">Synchronisierung fehlgeschlagen. Eintrag bearbeiten und erneut speichern</string>
     <string name="app_name">Finanzen</string>
     <string name="splash_subtitle">die Maschine der finanziellen Wahrheit</string>
     <string name="nav_expenses">Ausgaben</string>
@@ -9,10 +52,10 @@
     <string name="balance_total">Saldo gesamt</string>
     <string name="cd_add">Hinzufügen</string>
     <string name="cd_analysis">Analyse</string>
-    <string name="cd_history">Verlauf</string>
     <string name="cd_settings">Einstellungen</string>
     <string name="cd_back">Zurück</string>
     <string name="error_no_internet">Keine Internetverbindung</string>
+    <string name="offline_changes_saved_locally">Kein Internet — Änderungen werden auf diesem Gerät gespeichert</string>
     <string name="error_unauthorized">Autorisierung fehlgeschlagen. API-Token prüfen</string>
     <string name="error_server">Serverfehler (%1$d). Später erneut versuchen</string>
     <string name="error_unknown">Etwas ist schiefgelaufen</string>
@@ -50,13 +93,10 @@
     <string name="settings_security">Sicherheit</string>
     <string name="settings_pin">PIN-Code</string>
     <string name="settings_biometrics">Biometrie</string>
-    <string name="settings_coming_later">Im nächsten Schritt</string>
-    <string name="settings_currency_explanation">Die gewählte Währung gilt nur als Standard für neue Konten. Bestehende Beträge werden nicht umgerechnet.</string>
     <string name="settings_articles_search">Kategorien suchen</string>
     <string name="settings_clear_search">Suche löschen</string>
     <string name="settings_articles_empty">Noch keine Kategorien im Cache</string>
     <string name="settings_articles_no_results">Keine Ergebnisse</string>
-    <string name="settings_security_next_chat">Sicherheitseinstellungen folgen im nächsten Schritt.</string>
 
     <string name="currency_rub">Russischer Rubel</string>
     <string name="currency_usd">US-Dollar</string>
@@ -72,7 +112,7 @@
     <string name="language_french">Français</string>
     <string name="language_spanish">Español</string>
 
-    <string name="cd_pin_progress">%1$d von %2$d Ziffern eingegeben</string>
+    <string name="cd_pin_progress">Eingegeben: %1$d von %2$d</string>
     <string name="cd_pin_backspace">Ziffer löschen</string>
 
     <string name="security_pin_set">Gesetzt</string>

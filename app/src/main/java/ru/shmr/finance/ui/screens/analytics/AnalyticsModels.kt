@@ -33,8 +33,10 @@ data class AnalyticsFilters(
 ) {
     companion object {
         // по умолчанию: с начала текущего месяца по сегодня
-        fun default(type: TypeFilter): AnalyticsFilters {
-            val today = LocalDate.now()
+        fun default(
+            type: TypeFilter,
+            today: LocalDate = LocalDate.now(),
+        ): AnalyticsFilters {
             return AnalyticsFilters(
                 type = type,
                 preset = PeriodPreset.MONTH,

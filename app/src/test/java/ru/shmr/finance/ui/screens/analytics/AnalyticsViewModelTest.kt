@@ -3,6 +3,9 @@ package ru.shmr.finance.ui.screens.analytics
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -226,7 +229,7 @@ class AnalyticsViewModelTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
             Dispatchers.setMain(dispatcher)
             try {
-                val today = LocalDate.now()
+                val today = LocalDate.of(2026, 7, 27)
                 val inRangeTx = transaction(
                     localId = "in-range",
                     accountId = ACCOUNT_1.id,
@@ -274,6 +277,7 @@ class AnalyticsViewModelTest {
         categoriesRepository = FakeCategoriesRepository(categories),
         transactionsRepository = transactionsRepository,
         computeDispatcher = computeDispatcher,
+        clock = Clock.fixed(Instant.parse("2026-07-27T12:00:00Z"), ZoneOffset.UTC),
     )
 
     private fun transaction(

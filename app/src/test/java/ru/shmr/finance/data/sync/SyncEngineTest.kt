@@ -74,9 +74,10 @@ class SyncEngineTest {
 
         val outcome = SyncEngine(queue, remote).sync()
 
-        assertEquals(SyncOutcome.FAILURE, outcome)
+        assertEquals(SyncOutcome.PARTIAL_FAILURE, outcome)
         val broken = queue.transactions.single { it.localId == "broken" }
         assertEquals(SyncAction.CREATE, broken.action)
+        assertEquals(SyncFailure.ITEM_PERMANENT, broken.failure)
         assertEquals(null, broken.serverId)
         val healthy = queue.transactions.single { it.localId == "healthy" }
         assertEquals(SyncAction.NONE, healthy.action)
@@ -118,7 +119,7 @@ class SyncEngineTest {
 
         val outcome = SyncEngine(queue, remote).sync()
 
-        assertEquals(SyncOutcome.FAILURE, outcome)
+        assertEquals(SyncOutcome.PARTIAL_FAILURE, outcome)
         assertEquals(listOf("other"), remote.attemptedTransactionLocalIds)
         val blocked = queue.transactions.single { it.localId == "blocked" }
         assertEquals(SyncAction.CREATE, blocked.action)
@@ -147,7 +148,7 @@ class SyncEngineTest {
         )
         val engine = SyncEngine(queue, remote)
 
-        assertEquals(SyncOutcome.FAILURE, engine.sync())
+        assertEquals(SyncOutcome.PARTIAL_FAILURE, engine.sync())
 
         queue.transactions += transaction(
             localId = "new-in-next-run",
@@ -156,7 +157,7 @@ class SyncEngineTest {
             action = SyncAction.CREATE,
         )
 
-        assertEquals(SyncOutcome.FAILURE, engine.sync())
+        assertEquals(SyncOutcome.PARTIAL_FAILURE, engine.sync())
         val stillBroken = queue.transactions.single { it.localId == "always-broken" }
         assertEquals(SyncAction.CREATE, stillBroken.action)
         val newItem = queue.transactions.single { it.localId == "new-in-next-run" }
@@ -184,6 +185,24 @@ class SyncEngineTest {
         assertEquals(9, queue.transactions.single().serverId)
     }
 
+    @Test
+    fun `persisted permanent failure is not sent again`() = runTest {
+        val queue = FakeSyncQueue(
+            transactions = mutableListOf(
+                transaction(
+                    localId = "failed",
+                    serverId = null,
+                    accountId = 1,
+                    action = SyncAction.CREATE,
+                ).copy(failure = SyncFailure.ITEM_PERMANENT),
+            ),
+        )
+        val remote = FakeSyncRemote()
+
+        assertEquals(SyncOutcome.PARTIAL_FAILURE, SyncEngine(queue, remote).sync())
+        assertTrue(remote.attemptedTransactionLocalIds.isEmpty())
+    }
+
     private fun account(id: Int, action: SyncAction) = PendingAccount(
         id = id,
         name = "Основной",
@@ -191,6 +210,8 @@ class SyncEngineTest {
         balance = "1000.00",
         currency = "RUB",
         action = action,
+        revision = 1,
+        failure = null,
     )
 
     private fun transaction(
@@ -207,6 +228,8 @@ class SyncEngineTest {
         transactionDate = LocalDateTime.of(2026, 7, 24, 18, 30),
         comment = null,
         action = action,
+        revision = 1,
+        failure = null,
     )
 }
 
@@ -221,11 +244,11 @@ private class FakeSyncQueue(
     override suspend fun pendingTransactions(): List<PendingTransaction> =
         transactions.filter { it.action != SyncAction.NONE }
 
-    override suspend fun replaceCreatedAccount(localId: Int, remote: PendingAccount) {
-        val index = accounts.indexOfFirst { it.id == localId }
+    override suspend fun replaceCreatedAccount(sent: PendingAccount, remote: PendingAccount) {
+        val index = accounts.indexOfFirst { it.id == sent.id }
         accounts[index] = remote.copy(action = SyncAction.NONE)
         transactions.replaceAll { transaction ->
-            if (transaction.accountId == localId) {
+            if (transaction.accountId == sent.id) {
                 transaction.copy(accountId = remote.id)
             } else {
                 transaction
@@ -233,25 +256,38 @@ private class FakeSyncQueue(
         }
     }
 
-    override suspend fun markAccountSynced(remote: PendingAccount) {
-        val index = accounts.indexOfFirst { it.id == remote.id }
+    override suspend fun markAccountSynced(sent: PendingAccount, remote: PendingAccount) {
+        val index = accounts.indexOfFirst { it.id == sent.id }
         accounts[index] = remote.copy(action = SyncAction.NONE)
     }
 
     override suspend fun replaceCreatedTransaction(
-        localId: String,
+        sent: PendingTransaction,
         remote: PendingTransaction,
     ) {
-        val index = transactions.indexOfFirst { it.localId == localId }
-        transactions[index] = remote.copy(localId = localId, action = SyncAction.NONE)
+        val index = transactions.indexOfFirst { it.localId == sent.localId }
+        transactions[index] = remote.copy(localId = sent.localId, action = SyncAction.NONE)
     }
 
-    override suspend fun markTransactionSynced(remote: PendingTransaction) {
-        val index = transactions.indexOfFirst { it.serverId == remote.serverId }
+    override suspend fun markTransactionSynced(
+        sent: PendingTransaction,
+        remote: PendingTransaction,
+    ) {
+        val index = transactions.indexOfFirst { it.localId == sent.localId }
         transactions[index] = remote.copy(
             localId = transactions[index].localId,
             action = SyncAction.NONE,
         )
+    }
+
+    override suspend fun markAccountFailed(sent: PendingAccount) {
+        val index = accounts.indexOfFirst { it.id == sent.id }
+        accounts[index] = accounts[index].copy(failure = SyncFailure.ITEM_PERMANENT)
+    }
+
+    override suspend fun markTransactionFailed(sent: PendingTransaction) {
+        val index = transactions.indexOfFirst { it.localId == sent.localId }
+        transactions[index] = transactions[index].copy(failure = SyncFailure.ITEM_PERMANENT)
     }
 }
 

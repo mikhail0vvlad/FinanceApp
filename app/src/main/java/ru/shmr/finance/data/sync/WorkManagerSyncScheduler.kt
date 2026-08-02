@@ -60,6 +60,7 @@ class FinanceSyncWorker(
 
     override suspend fun doWork(): Result = when (ServiceLocator.syncAll()) {
         SyncOutcome.SUCCESS -> Result.success()
+        SyncOutcome.PARTIAL_FAILURE -> Result.failure()
         SyncOutcome.RETRY -> Result.retry()
         SyncOutcome.FAILURE -> Result.failure()
     }

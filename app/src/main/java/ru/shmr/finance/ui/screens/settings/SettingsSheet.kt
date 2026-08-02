@@ -27,12 +27,14 @@ import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SettingsBrightness
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -59,9 +61,14 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.shmr.finance.R
 import ru.shmr.finance.core.state.UiState
+import ru.shmr.finance.di.ServiceLocator
 import ru.shmr.finance.domain.model.AppCurrency
 import ru.shmr.finance.domain.model.AppLanguage
 import ru.shmr.finance.domain.model.AppSettings
@@ -70,6 +77,7 @@ import ru.shmr.finance.domain.model.SecurityState
 import ru.shmr.finance.domain.model.ThemeMode
 import ru.shmr.finance.ui.screens.settings.security.BiometricsRoute
 import ru.shmr.finance.ui.screens.settings.security.PinFlowRoute
+import ru.shmr.finance.ui.components.message
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +90,7 @@ fun SettingsSheet(
     onLanguageSelected: (AppLanguage) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tokenConfigured by ServiceLocator.apiTokenRepository.hasToken.collectAsStateWithLifecycle()
     var state by rememberSaveable(stateSaver = SettingsSheetStateSaver) {
         mutableStateOf(SettingsSheetState())
     }
@@ -107,6 +116,7 @@ fun SettingsSheet(
         when (state.page) {
             SettingsPage.MAIN -> MainSettingsScreen(
                 security = security,
+                tokenConfigured = tokenConfigured,
                 onOpen = { dispatch(SettingsSheetAction.Open(it)) },
             )
 
@@ -146,6 +156,10 @@ fun SettingsSheet(
             SettingsPage.BIOMETRICS -> BiometricsRoute(
                 onBack = { dispatch(SettingsSheetAction.Back) },
             )
+
+            SettingsPage.API_TOKEN -> ApiTokenScreen(
+                onBack = { dispatch(SettingsSheetAction.Back) },
+            )
         }
     }
 }
@@ -153,6 +167,7 @@ fun SettingsSheet(
 @Composable
 private fun MainSettingsScreen(
     security: SecurityState,
+    tokenConfigured: Boolean,
     onOpen: (SettingsPage) -> Unit,
 ) {
     Column(
@@ -207,6 +222,76 @@ private fun MainSettingsScreen(
             ),
             onClick = { onOpen(SettingsPage.BIOMETRICS) },
         )
+        SettingsRow(
+            icon = Icons.Outlined.Key,
+            title = stringResource(R.string.settings_api_token),
+            value = stringResource(
+                if (tokenConfigured) {
+                    R.string.settings_api_token_set
+                } else {
+                    R.string.settings_api_token_not_set
+                },
+            ),
+            onClick = { onOpen(SettingsPage.API_TOKEN) },
+        )
+    }
+}
+
+@Composable
+private fun ApiTokenScreen(
+    onBack: () -> Unit,
+    viewModel: ApiTokenViewModel = viewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp),
+    ) {
+        ScreenTitle(
+            title = stringResource(R.string.settings_api_token),
+            onBack = onBack,
+        )
+        Text(
+            text = stringResource(R.string.settings_api_token_explanation),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        )
+        OutlinedTextField(
+            value = state.input,
+            onValueChange = viewModel::onTokenChanged,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            enabled = !state.isSaving,
+            singleLine = true,
+            label = { Text(stringResource(R.string.settings_api_token_input)) },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done,
+            ),
+            isError = state.error != null,
+            supportingText = {
+                when {
+                    state.error != null -> Text(requireNotNull(state.error).message())
+                    state.saved -> Text(stringResource(R.string.settings_api_token_saved))
+                    state.isConfigured -> Text(
+                        stringResource(R.string.settings_api_token_replace_hint),
+                    )
+                }
+            },
+        )
+        Button(
+            onClick = viewModel::save,
+            enabled = !state.isSaving,
+            modifier = Modifier
+                .align(Alignment.End)
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+        ) {
+            Text(stringResource(R.string.cd_save))
+        }
     }
 }
 

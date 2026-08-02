@@ -51,6 +51,9 @@ fun AppError.message(): String = when (this) {
     AppError.NoInternet -> stringResource(R.string.error_no_internet)
     AppError.Unauthorized -> stringResource(R.string.error_unauthorized)
     is AppError.Server -> stringResource(R.string.error_server, code)
+    is AppError.Client -> stringResource(R.string.error_client, code)
+    is AppError.Validation -> stringResource(issue.messageResource)
+    AppError.Storage -> stringResource(R.string.error_storage)
     AppError.Unknown -> stringResource(R.string.error_unknown)
 }
 
@@ -59,8 +62,25 @@ fun AppError.plainMessage(context: Context): String = when (this) {
     AppError.NoInternet -> context.getString(R.string.error_no_internet)
     AppError.Unauthorized -> context.getString(R.string.error_unauthorized)
     is AppError.Server -> context.getString(R.string.error_server, code)
+    is AppError.Client -> context.getString(R.string.error_client, code)
+    is AppError.Validation -> context.getString(issue.messageResource)
+    AppError.Storage -> context.getString(R.string.error_storage)
     AppError.Unknown -> context.getString(R.string.error_unknown)
 }
+
+private val ru.shmr.finance.domain.model.ValidationIssue.messageResource: Int
+    get() = when (this) {
+        ru.shmr.finance.domain.model.ValidationIssue.ACCOUNT_NAME_REQUIRED ->
+            R.string.validation_account_name_required
+        ru.shmr.finance.domain.model.ValidationIssue.BALANCE_NEGATIVE ->
+            R.string.validation_balance_negative
+        ru.shmr.finance.domain.model.ValidationIssue.ACCOUNT_CURRENCY_LOCKED ->
+            R.string.validation_account_currency_locked
+        ru.shmr.finance.domain.model.ValidationIssue.TRANSACTION_INVALID ->
+            R.string.validation_transaction_invalid
+        ru.shmr.finance.domain.model.ValidationIssue.API_TOKEN_REQUIRED ->
+            R.string.validation_api_token_required
+    }
 
 @Composable
 fun ErrorState(

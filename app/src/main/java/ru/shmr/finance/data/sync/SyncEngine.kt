@@ -1,6 +1,8 @@
 package ru.shmr.finance.data.sync
 
 import java.time.LocalDateTime
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 enum class SyncAction {
     NONE,
@@ -14,6 +16,10 @@ enum class SyncAction {
     }
 }
 
+enum class SyncFailure {
+    ITEM_PERMANENT,
+}
+
 data class PendingAccount(
     val id: Int,
     val name: String,
@@ -21,6 +27,8 @@ data class PendingAccount(
     val balance: String,
     val currency: String,
     val action: SyncAction,
+    val revision: Long,
+    val failure: SyncFailure?,
 )
 
 data class PendingTransaction(
@@ -32,6 +40,8 @@ data class PendingTransaction(
     val transactionDate: LocalDateTime,
     val comment: String?,
     val action: SyncAction,
+    val revision: Long,
+    val failure: SyncFailure?,
 )
 
 sealed interface SyncCallResult<out T> {
@@ -47,6 +57,7 @@ sealed interface SyncCallResult<out T> {
 
 enum class SyncOutcome {
     SUCCESS,
+    PARTIAL_FAILURE,
     RETRY,
     FAILURE,
 }
@@ -54,10 +65,12 @@ enum class SyncOutcome {
 interface SyncQueue {
     suspend fun pendingAccounts(): List<PendingAccount>
     suspend fun pendingTransactions(): List<PendingTransaction>
-    suspend fun replaceCreatedAccount(localId: Int, remote: PendingAccount)
-    suspend fun markAccountSynced(remote: PendingAccount)
-    suspend fun replaceCreatedTransaction(localId: String, remote: PendingTransaction)
-    suspend fun markTransactionSynced(remote: PendingTransaction)
+    suspend fun replaceCreatedAccount(sent: PendingAccount, remote: PendingAccount)
+    suspend fun markAccountSynced(sent: PendingAccount, remote: PendingAccount)
+    suspend fun replaceCreatedTransaction(sent: PendingTransaction, remote: PendingTransaction)
+    suspend fun markTransactionSynced(sent: PendingTransaction, remote: PendingTransaction)
+    suspend fun markAccountFailed(sent: PendingAccount)
+    suspend fun markTransactionFailed(sent: PendingTransaction)
 }
 
 interface SyncRemoteGateway {
@@ -77,6 +90,11 @@ class SyncEngine(
         val blockedAccountIds = mutableSetOf<Int>()
 
         for (account in queue.pendingAccounts().sortedBy { it.id }) {
+            if (account.failure != null) {
+                hadItemFailure = true
+                if (account.action == SyncAction.CREATE) blockedAccountIds += account.id
+                continue
+            }
             val result = when (account.action) {
                 SyncAction.CREATE -> remote.createAccount(account)
                 SyncAction.UPDATE -> remote.updateAccount(account)
@@ -84,20 +102,25 @@ class SyncEngine(
             }
             when (result) {
                 is SyncCallResult.Success -> when (account.action) {
-                    SyncAction.CREATE -> queue.replaceCreatedAccount(account.id, result.value)
-                    SyncAction.UPDATE -> queue.markAccountSynced(result.value)
+                    SyncAction.CREATE -> queue.replaceCreatedAccount(account, result.value)
+                    SyncAction.UPDATE -> queue.markAccountSynced(account, result.value)
                     SyncAction.NONE -> Unit
                 }
                 SyncCallResult.RetryableFailure -> return SyncOutcome.RETRY
                 SyncCallResult.GlobalFatalFailure -> return SyncOutcome.FAILURE
                 SyncCallResult.ItemPermanentFailure -> {
                     hadItemFailure = true
+                    queue.markAccountFailed(account)
                     if (account.action == SyncAction.CREATE) blockedAccountIds += account.id
                 }
             }
         }
 
         for (transaction in queue.pendingTransactions().sortedBy { it.transactionDate }) {
+            if (transaction.failure != null) {
+                hadItemFailure = true
+                continue
+            }
             if (transaction.accountId in blockedAccountIds) {
                 hadItemFailure = true
                 continue
@@ -109,18 +132,25 @@ class SyncEngine(
             }
             when (result) {
                 is SyncCallResult.Success -> when (transaction.action) {
-                    SyncAction.CREATE -> queue.replaceCreatedTransaction(
-                        transaction.localId,
-                        result.value,
-                    )
-                    SyncAction.UPDATE -> queue.markTransactionSynced(result.value)
+                    SyncAction.CREATE -> queue.replaceCreatedTransaction(transaction, result.value)
+                    SyncAction.UPDATE -> queue.markTransactionSynced(transaction, result.value)
                     SyncAction.NONE -> Unit
                 }
                 SyncCallResult.RetryableFailure -> return SyncOutcome.RETRY
                 SyncCallResult.GlobalFatalFailure -> return SyncOutcome.FAILURE
-                SyncCallResult.ItemPermanentFailure -> hadItemFailure = true
+                SyncCallResult.ItemPermanentFailure -> {
+                    hadItemFailure = true
+                    queue.markTransactionFailed(transaction)
+                }
             }
         }
-        return if (hadItemFailure) SyncOutcome.FAILURE else SyncOutcome.SUCCESS
+        return if (hadItemFailure) SyncOutcome.PARTIAL_FAILURE else SyncOutcome.SUCCESS
     }
+}
+
+/** Serializes every entry into the full sync pipeline inside this app process. */
+class SyncCoordinator {
+    private val mutex = Mutex()
+
+    suspend fun run(block: suspend () -> SyncOutcome): SyncOutcome = mutex.withLock { block() }
 }

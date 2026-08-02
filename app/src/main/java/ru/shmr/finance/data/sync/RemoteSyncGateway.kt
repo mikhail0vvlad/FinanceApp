@@ -110,6 +110,10 @@ private inline fun <T, R> AppResult<T>.toSyncResult(
     is AppResult.Failure -> when (error) {
         AppError.NoInternet, is AppError.Server -> SyncCallResult.RetryableFailure
         AppError.Unauthorized -> SyncCallResult.GlobalFatalFailure
-        AppError.Unknown -> SyncCallResult.ItemPermanentFailure
+        is AppError.Client,
+        is AppError.Validation,
+        AppError.Storage,
+        AppError.Unknown,
+        -> SyncCallResult.ItemPermanentFailure
     }
 }

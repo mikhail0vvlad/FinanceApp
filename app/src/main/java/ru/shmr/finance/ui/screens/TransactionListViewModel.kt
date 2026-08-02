@@ -3,12 +3,20 @@ package ru.shmr.finance.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
+import java.time.Clock
+import java.time.Duration
+import java.time.ZonedDateTime
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.shmr.finance.core.result.AppResult
@@ -19,21 +27,27 @@ import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.domain.repository.CategoriesRepository
 import ru.shmr.finance.domain.repository.TransactionsRepository
 
+@OptIn(ExperimentalCoroutinesApi::class)
 abstract class TransactionListViewModel(
     private val isIncome: Boolean,
     private val accountsRepository: AccountsRepository,
     private val categoriesRepository: CategoriesRepository,
     private val transactionsRepository: TransactionsRepository,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {
 
-    private val today = LocalDate.now()
+    private val currentDate = MutableStateFlow(LocalDate.now(clock))
     private val refreshError = MutableStateFlow<AppError?>(null)
     private val initialLoadFinished = MutableStateFlow(false)
     private var refreshJob: Job? = null
 
+    private val transactionsForCurrentDate = currentDate.flatMapLatest { date ->
+        transactionsRepository.observeTransactionsForPeriod(date, date)
+    }
+
     val state = combine(
         accountsRepository.observeAccounts(),
-        transactionsRepository.observeTransactionsForPeriod(today, today),
+        transactionsForCurrentDate,
         refreshError,
         initialLoadFinished,
     ) { accounts, transactions, error, loaded ->
@@ -64,11 +78,21 @@ abstract class TransactionListViewModel(
 
     init {
         refresh()
+        viewModelScope.launch {
+            while (currentCoroutineContext().isActive) {
+                val now = ZonedDateTime.now(clock)
+                val nextDay = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
+                delay(Duration.between(now, nextDay).toMillis().coerceAtLeast(1_000))
+                refresh()
+            }
+        }
     }
 
     fun retry() = refresh()
 
     private fun refresh() {
+        val today = LocalDate.now(clock)
+        currentDate.value = today
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             refreshError.value = null

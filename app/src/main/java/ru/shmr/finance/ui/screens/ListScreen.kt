@@ -16,6 +16,7 @@ import ru.shmr.finance.ui.components.ErrorState
 import ru.shmr.finance.ui.components.LeadContent
 import ru.shmr.finance.ui.components.ListItemModel
 import ru.shmr.finance.ui.components.ListItemRow
+import ru.shmr.finance.ui.components.ListItemSyncStatus
 import ru.shmr.finance.ui.components.LoadingState
 import ru.shmr.finance.ui.components.TotalHeader
 
@@ -55,7 +56,12 @@ fun Transaction.toListItem() = ListItemModel(
     id = localId,
     lead = LeadContent.Emoji(category.emoji),
     title = category.name,
-    subtitle = comment ?: if (isPending) "Ожидает синхронизации" else null,
+    subtitle = comment,
+    syncStatus = when {
+        syncFailed -> ListItemSyncStatus.FAILED
+        isPending -> ListItemSyncStatus.PENDING
+        else -> null
+    },
     trailingText = amount.formatted(),
     showArrow = true,
 )
@@ -64,7 +70,11 @@ fun Account.toListItem() = ListItemModel(
     id = id.toString(),
     lead = LeadContent.Emoji(emoji),
     title = name,
-    subtitle = if (isPending) "Ожидает синхронизации" else null,
+    syncStatus = when {
+        syncFailed -> ListItemSyncStatus.FAILED
+        isPending -> ListItemSyncStatus.PENDING
+        else -> null
+    },
     trailingText = balance.formatted(),
     showArrow = true,
 )

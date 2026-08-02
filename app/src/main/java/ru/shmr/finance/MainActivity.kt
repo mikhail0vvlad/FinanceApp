@@ -2,6 +2,7 @@ package ru.shmr.finance
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.runtime.getValue
@@ -27,6 +28,7 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition { keepSystemSplash }
 
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         setContent {
             val persistedSettings by produceState<AppSettings?>(initialValue = null) {

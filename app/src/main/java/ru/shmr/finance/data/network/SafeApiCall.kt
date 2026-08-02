@@ -18,6 +18,7 @@ suspend fun <T> safeApiCall(block: suspend () -> T): AppResult<T> = withContext(
         AppResult.Failure(
             when (e.code()) {
                 401 -> AppError.Unauthorized
+                in 400..499 -> AppError.Client(e.code())
                 in 500..599 -> AppError.Server(e.code())
                 else -> AppError.Unknown
             },
