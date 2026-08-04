@@ -21,6 +21,7 @@ import ru.shmr.finance.data.repository.AccountsRepositoryImpl
 import ru.shmr.finance.data.repository.CategoriesRepositoryImpl
 import ru.shmr.finance.data.repository.TransactionsRepositoryImpl
 import ru.shmr.finance.data.security.DataStorePinCredentialStorage
+import ru.shmr.finance.data.security.EncryptedPreferencesPinCredentialStorage
 import ru.shmr.finance.data.security.EncryptedApiTokenRepository
 import ru.shmr.finance.data.security.KeystoreCipher
 import ru.shmr.finance.data.security.SecurityRepositoryImpl
@@ -119,9 +120,15 @@ object ServiceLocator {
         categoriesRepository = CategoriesRepositoryImpl(api, local, dispatchers)
         transactionsRepository = TransactionsRepositoryImpl(api, local, scheduler, dispatchers)
         settingsRepository = DataStoreSettingsRepository(appContext)
+        val pinCipher = KeystoreCipher()
         securityRepository = SecurityRepositoryImpl(
-            credentialStorage = DataStorePinCredentialStorage(appContext),
-            cipher = KeystoreCipher(),
+            credentialStorage = EncryptedPreferencesPinCredentialStorage(
+                context = appContext,
+                legacyStorage = DataStorePinCredentialStorage(appContext),
+                legacyCipher = pinCipher,
+                dispatchers = dispatchers,
+            ),
+            cipher = pinCipher,
             settingsRepository = settingsRepository,
             dispatchers = dispatchers,
         )

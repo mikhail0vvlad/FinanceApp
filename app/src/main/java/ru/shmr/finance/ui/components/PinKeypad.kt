@@ -27,10 +27,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.shmr.finance.R
 import ru.shmr.finance.domain.model.PIN_LENGTH
+import ru.shmr.finance.ui.testing.PinTestTags
+import ru.shmr.finance.ui.testing.pinProgress
 
 /**
  * Точки-индикаторы введённых цифр. Сами цифры на экране не показываются никогда.
@@ -47,7 +50,10 @@ fun PinDots(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = description }
+            .clearAndSetSemantics {
+                contentDescription = description
+                pinProgress = filled
+            }
             .padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
     ) {
@@ -87,7 +93,9 @@ fun PinKeypad(
             KeypadRow {
                 row.forEach { digit ->
                     KeypadKey(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag(PinTestTags.digit(digit)),
                         enabled = enabled,
                         contentDescription = digit.toString(),
                         onClick = { onDigit(digit) },
@@ -104,7 +112,9 @@ fun PinKeypad(
         KeypadRow {
             Spacer(modifier = Modifier.weight(1f))
             KeypadKey(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(PinTestTags.digit('0')),
                 enabled = enabled,
                 contentDescription = "0",
                 onClick = { onDigit('0') },
@@ -116,7 +126,9 @@ fun PinKeypad(
                 )
             }
             KeypadKey(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(PinTestTags.BACKSPACE),
                 enabled = enabled,
                 contentDescription = stringResource(R.string.cd_pin_backspace),
                 onClick = onBackspace,

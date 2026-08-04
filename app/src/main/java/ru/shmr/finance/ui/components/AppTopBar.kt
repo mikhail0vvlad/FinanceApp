@@ -20,15 +20,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ru.shmr.finance.R
+import ru.shmr.finance.ui.testing.DatePickerTestTags
+import ru.shmr.finance.ui.testing.dateChipState
 
 @Composable
 fun AppTopBar(
     date: String,
     modifier: Modifier = Modifier,
+    isToday: Boolean = false,
     onDateClick: () -> Unit = {},
     onAnalysisClick: () -> Unit = {},
     onFilterClick: () -> Unit = {},
@@ -41,7 +45,7 @@ fun AppTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        DateChip(date, onClick = onDateClick)
+        DateChip(date, isToday = isToday, onClick = onDateClick)
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onAnalysisClick) {
                 Icon(
@@ -62,7 +66,7 @@ fun AppTopBar(
 }
 
 @Composable
-private fun DateChip(date: String, onClick: () -> Unit) {
+private fun DateChip(date: String, isToday: Boolean, onClick: () -> Unit) {
     val pickDateDescription = stringResource(R.string.cd_pick_date)
     Surface(
         shape = RoundedCornerShape(24.dp),
@@ -70,8 +74,16 @@ private fun DateChip(date: String, onClick: () -> Unit) {
     ) {
         Row(
             modifier = Modifier
+                .testTag(DatePickerTestTags.CHIP)
                 .clickable(onClick = onClick)
-                .semantics { contentDescription = pickDateDescription }
+                .semantics {
+                    contentDescription = pickDateDescription
+                    dateChipState = if (isToday) {
+                        DatePickerTestTags.TODAY_STATE
+                    } else {
+                        DatePickerTestTags.SELECTED_STATE
+                    }
+                }
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

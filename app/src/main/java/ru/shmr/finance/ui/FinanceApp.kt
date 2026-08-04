@@ -139,7 +139,8 @@ private fun TabsScreen(
     }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales[0]
-    val dateLabel = if (selectedDate == LocalDate.now()) {
+    val today = LocalDate.now()
+    val dateLabel = if (selectedDate == today) {
         stringResource(R.string.date_today)
     } else {
         selectedDate.format(DateTimeFormatter.ofPattern("d MMMM", locale))
@@ -149,6 +150,7 @@ private fun TabsScreen(
         topBar = {
             AppTopBar(
                 date = dateLabel,
+                isToday = selectedDate == today,
                 onDateClick = { datePickerOpen = true },
                 onAnalysisClick = {
                     val income = currentDestination

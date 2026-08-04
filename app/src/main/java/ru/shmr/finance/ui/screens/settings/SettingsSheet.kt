@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -80,6 +81,7 @@ import ru.shmr.finance.domain.model.SecurityState
 import ru.shmr.finance.domain.model.ThemeMode
 import ru.shmr.finance.ui.screens.settings.security.BiometricsRoute
 import ru.shmr.finance.ui.screens.settings.security.PinFlowRoute
+import ru.shmr.finance.ui.testing.SettingsTestTags
 import ru.shmr.finance.ui.components.message
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -197,6 +199,7 @@ private fun MainSettingsScreen(
             icon = Icons.Outlined.DarkMode,
             title = stringResource(R.string.settings_theme),
             onClick = { onOpen(SettingsPage.THEME) },
+            modifier = Modifier.testTag(SettingsTestTags.THEME_ROW),
         )
         SettingsRow(
             icon = Icons.Outlined.Language,
@@ -487,6 +490,7 @@ private fun ThemeScreen(
                 Card(
                     modifier = Modifier
                         .weight(1f)
+                        .testTag(SettingsTestTags.themeOption(mode))
                         .semantics { this.selected = isSelected }
                         .clickable { onSelected(mode) },
                     shape = RoundedCornerShape(14.dp),
@@ -604,12 +608,13 @@ private fun SettingsSectionTitle(titleRes: Int) {
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
+    modifier: Modifier = Modifier,
     value: String = "",
     onClick: () -> Unit,
 ) {
     val semanticsText = if (value.isBlank()) title else "$title, $value"
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .semantics { contentDescription = semanticsText }
             .clickable(onClick = onClick)
