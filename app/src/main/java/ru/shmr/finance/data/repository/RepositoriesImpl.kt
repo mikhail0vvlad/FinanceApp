@@ -1,6 +1,9 @@
 package ru.shmr.finance.data.repository
 
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
@@ -12,6 +15,7 @@ import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.result.map
 import ru.shmr.finance.data.local.LocalFinanceDataSource
+import ru.shmr.finance.data.local.entity.TransactionEntity
 import ru.shmr.finance.data.mapper.toEntity
 import ru.shmr.finance.data.network.FinanceApi
 import ru.shmr.finance.data.network.safeApiCall
@@ -129,6 +133,7 @@ internal class TransactionsRepositoryImpl(
     private val local: LocalFinanceDataSource,
     private val syncScheduler: SyncScheduler,
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
+    private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : TransactionsRepository {
 
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
@@ -148,11 +153,13 @@ internal class TransactionsRepositoryImpl(
         reuseRecentSuccess = true,
     ) {
         safeApiCall(dispatchers.io) {
+            val serverDates = serverDateRangeForLocalPeriod(startDate, endDate, zoneId)
             val remote = api.getTransactionsForPeriod(
                 accountId = accountId,
-                startDate = startDate.format(dateFormatter),
-                endDate = endDate.format(dateFormatter),
-            ).map { it.toEntity() }
+                startDate = serverDates.startDate.format(dateFormatter),
+                endDate = serverDates.endDate.format(dateFormatter),
+            ).map { it.toEntity(zoneId) }
+                .filterForLocalPeriod(startDate, endDate)
             local.replaceRemoteTransactions(accountId, startDate, endDate, remote)
         }
     }
@@ -184,6 +191,37 @@ private data class TransactionRefreshKey(
     val startDate: LocalDate,
     val endDate: LocalDate,
 )
+
+internal data class ServerDateRange(
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+)
+
+/**
+ * The backend groups offset timestamps by their UTC calendar date. A local day can overlap two
+ * UTC dates, so fetch every server date it touches and filter mapped rows back to the local range.
+ */
+internal fun serverDateRangeForLocalPeriod(
+    startDate: LocalDate,
+    endDate: LocalDate,
+    zoneId: ZoneId,
+): ServerDateRange {
+    require(!endDate.isBefore(startDate))
+    val startInstant = startDate.atStartOfDay(zoneId).toInstant()
+    val endExclusive = endDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+    return ServerDateRange(
+        startDate = startInstant.atZone(ZoneOffset.UTC).toLocalDate(),
+        endDate = endExclusive.minusNanos(1).atZone(ZoneOffset.UTC).toLocalDate(),
+    )
+}
+
+internal fun List<TransactionEntity>.filterForLocalPeriod(
+    startDate: LocalDate,
+    endDate: LocalDate,
+): List<TransactionEntity> = filter { entity ->
+    val localDate = LocalDateTime.parse(entity.transactionDate).toLocalDate()
+    !localDate.isBefore(startDate) && !localDate.isAfter(endDate)
+}
 
 private class SuccessfulRefreshGate<K : Any>(
     private val freshnessNanos: Long = 2_000_000_000,

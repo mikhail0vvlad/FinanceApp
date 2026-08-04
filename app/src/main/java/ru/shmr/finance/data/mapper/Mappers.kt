@@ -59,19 +59,19 @@ fun CategoryDto.toEntity() = CategoryEntity(
     isIncome = isIncome,
 )
 
-fun TransactionResponseDto.toEntity() = TransactionEntity(
+fun TransactionResponseDto.toEntity(zoneId: ZoneId = ZoneId.systemDefault()) = TransactionEntity(
     localId = "remote-$id",
     serverId = id,
     accountId = account.id,
     categoryId = category.id,
     amount = amount,
-    transactionDate = parseDateTime(transactionDate).toString(),
+    transactionDate = parseDateTime(transactionDate, zoneId).toString(),
     comment = comment?.takeIf { it.isNotBlank() },
     syncAction = SyncAction.NONE,
 )
 
 // Сервер отдаёт date-time по-разному: с 'Z', со смещением и иногда без него.
-fun parseDateTime(raw: String): LocalDateTime =
-    runCatching { OffsetDateTime.parse(raw).atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime() }
-        .recoverCatching { Instant.parse(raw).atZone(ZoneId.systemDefault()).toLocalDateTime() }
+fun parseDateTime(raw: String, zoneId: ZoneId = ZoneId.systemDefault()): LocalDateTime =
+    runCatching { OffsetDateTime.parse(raw).atZoneSameInstant(zoneId).toLocalDateTime() }
+        .recoverCatching { Instant.parse(raw).atZone(zoneId).toLocalDateTime() }
         .getOrElse { LocalDateTime.parse(raw) }
