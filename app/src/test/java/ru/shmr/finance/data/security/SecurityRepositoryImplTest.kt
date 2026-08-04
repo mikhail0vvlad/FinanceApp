@@ -1,5 +1,6 @@
 package ru.shmr.finance.data.security
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +12,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.data.settings.FakeSettingsRepository
 import ru.shmr.finance.domain.model.AppSettings
 import ru.shmr.finance.domain.model.PinStorageError
@@ -149,8 +151,17 @@ class SecurityRepositoryImplTest {
         credentialStorage = storage,
         cipher = cipher,
         settingsRepository = settingsRepository,
-        cryptoDispatcher = UnconfinedTestDispatcher(),
+        dispatchers = TestDispatcherProvider(),
     )
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+private class TestDispatcherProvider(
+    dispatcher: CoroutineDispatcher = UnconfinedTestDispatcher(),
+) : DispatcherProvider {
+    override val io: CoroutineDispatcher = dispatcher
+    override val default: CoroutineDispatcher = dispatcher
+    override val main: CoroutineDispatcher = dispatcher
 }
 
 private class InMemoryCredentialStorage(

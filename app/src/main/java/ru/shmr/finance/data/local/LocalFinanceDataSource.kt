@@ -6,11 +6,12 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withContext
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.data.local.entity.AccountEntity
 import ru.shmr.finance.data.local.entity.CategoryEntity
 import ru.shmr.finance.data.local.entity.TransactionEntity
@@ -27,8 +28,9 @@ import ru.shmr.finance.domain.model.Money
 import ru.shmr.finance.domain.model.Transaction
 import ru.shmr.finance.domain.validation.TransactionDraft
 
-class LocalFinanceDataSource(
+internal class LocalFinanceDataSource(
     private val database: FinanceDatabase,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : SyncQueue {
 
     private val accounts = database.accountDao()
@@ -50,23 +52,23 @@ class LocalFinanceDataSource(
             endExclusive = endDate.plusDays(1).atStartOfDay().toString(),
         ).map { rows -> rows.mapNotNull(TransactionRecord::toDomainOrNull) }
 
-    suspend fun getAccounts(): List<Account> = withContext(Dispatchers.IO) {
+    suspend fun getAccounts(): List<Account> = withContext(dispatchers.io) {
         accounts.getAll().map(AccountEntity::toDomain)
     }
 
-    suspend fun getCategories(): List<Category> = withContext(Dispatchers.IO) {
+    suspend fun getCategories(): List<Category> = withContext(dispatchers.io) {
         categories.getAll().map(CategoryEntity::toDomain)
     }
 
-    suspend fun getTransaction(localId: String): Transaction? = withContext(Dispatchers.IO) {
+    suspend fun getTransaction(localId: String): Transaction? = withContext(dispatchers.io) {
         transactions.getRecordByLocalId(localId)?.toDomainOrNull()
     }
 
-    suspend fun hasTransactions(accountId: Int): Boolean = withContext(Dispatchers.IO) {
+    suspend fun hasTransactions(accountId: Int): Boolean = withContext(dispatchers.io) {
         transactions.existsForAccount(accountId)
     }
 
-    suspend fun upsertRemoteAccounts(remote: List<AccountEntity>) = withContext(Dispatchers.IO) {
+    suspend fun upsertRemoteAccounts(remote: List<AccountEntity>) = withContext(dispatchers.io) {
         database.withTransaction {
             val pendingIds = accounts.getPending().mapTo(mutableSetOf()) { it.id }
             val accountsWithPendingTransactions = transactions.pendingAccountIds().toSet()
@@ -94,7 +96,7 @@ class LocalFinanceDataSource(
         }
     }
 
-    suspend fun upsertCategories(remote: List<CategoryEntity>) = withContext(Dispatchers.IO) {
+    suspend fun upsertCategories(remote: List<CategoryEntity>) = withContext(dispatchers.io) {
         categories.upsertAll(remote)
     }
 
@@ -104,7 +106,7 @@ class LocalFinanceDataSource(
         endDate: LocalDate,
         remote: List<TransactionEntity>,
     ) =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val serverIds = remote.map { requireNotNull(it.serverId) }
                 val existingByServerId = serverIds
@@ -132,7 +134,7 @@ class LocalFinanceDataSource(
             }
         }
 
-    suspend fun saveAccount(draft: AccountDraft): Account = withContext(Dispatchers.IO) {
+    suspend fun saveAccount(draft: AccountDraft): Account = withContext(dispatchers.io) {
         database.withTransaction {
             val existing = draft.id?.let { accounts.getById(it) }
             check(
@@ -171,7 +173,7 @@ class LocalFinanceDataSource(
         normalizedAmount: BigDecimal,
         normalizedComment: String?,
         existingLocalId: String?,
-    ): Transaction = withContext(Dispatchers.IO) {
+    ): Transaction = withContext(dispatchers.io) {
         database.withTransaction {
             val accountId = requireNotNull(draft.accountId)
             val categoryId = requireNotNull(draft.categoryId)
@@ -225,13 +227,13 @@ class LocalFinanceDataSource(
     }
 
     override suspend fun pendingAccounts(): List<PendingAccount> =
-        withContext(Dispatchers.IO) { accounts.getPending().map(AccountEntity::toPending) }
+        withContext(dispatchers.io) { accounts.getPending().map(AccountEntity::toPending) }
 
     override suspend fun pendingTransactions(): List<PendingTransaction> =
-        withContext(Dispatchers.IO) { transactions.getPending().map(TransactionEntity::toPending) }
+        withContext(dispatchers.io) { transactions.getPending().map(TransactionEntity::toPending) }
 
     override suspend fun replaceCreatedAccount(sent: PendingAccount, remote: PendingAccount) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val localAccount = accounts.getById(sent.id) ?: return@withTransaction
                 val replacement = if (localAccount.revision == sent.revision) {
@@ -258,7 +260,7 @@ class LocalFinanceDataSource(
     }
 
     override suspend fun markAccountSynced(sent: PendingAccount, remote: PendingAccount) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val localAccount = accounts.getById(sent.id) ?: return@withTransaction
                 if (localAccount.revision != sent.revision) return@withTransaction
@@ -280,7 +282,7 @@ class LocalFinanceDataSource(
         sent: PendingTransaction,
         remote: PendingTransaction,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val existing = transactions.getByLocalId(sent.localId) ?: return@withTransaction
                 val replacement = if (existing.revision == sent.revision) {
@@ -310,7 +312,7 @@ class LocalFinanceDataSource(
         sent: PendingTransaction,
         remote: PendingTransaction,
     ) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val existing = transactions.getByLocalId(sent.localId) ?: return@withTransaction
                 if (existing.revision != sent.revision) return@withTransaction
@@ -331,7 +333,7 @@ class LocalFinanceDataSource(
     }
 
     override suspend fun markAccountFailed(sent: PendingAccount) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val current = accounts.getById(sent.id) ?: return@withTransaction
                 if (current.revision == sent.revision) {
@@ -342,7 +344,7 @@ class LocalFinanceDataSource(
     }
 
     override suspend fun markTransactionFailed(sent: PendingTransaction) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val current = transactions.getByLocalId(sent.localId) ?: return@withTransaction
                 if (current.revision == sent.revision) {
@@ -352,7 +354,7 @@ class LocalFinanceDataSource(
         }
     }
 
-    suspend fun transactionSyncStartDate(accountId: Int): LocalDate = withContext(Dispatchers.IO) {
+    suspend fun transactionSyncStartDate(accountId: Int): LocalDate = withContext(dispatchers.io) {
         accounts.getById(accountId)
             ?.transactionSyncCursor
             ?.let(LocalDate::parse)
@@ -361,7 +363,7 @@ class LocalFinanceDataSource(
     }
 
     suspend fun markTransactionsSyncedThrough(accountId: Int, endDate: LocalDate) {
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             database.withTransaction {
                 val account = accounts.getById(accountId) ?: return@withTransaction
                 accounts.upsert(account.copy(transactionSyncCursor = endDate.toString()))

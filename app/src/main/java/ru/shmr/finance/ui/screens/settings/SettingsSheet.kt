@@ -47,6 +47,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,6 +67,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.shmr.finance.R
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.di.ServiceLocator
@@ -85,12 +88,12 @@ fun SettingsSheet(
     settings: AppSettings,
     security: SecurityState,
     categoriesState: UiState<List<Category>>,
+    tokenConfigured: Boolean,
     onCurrencySelected: (AppCurrency) -> Unit,
     onThemeModeSelected: (ThemeMode) -> Unit,
     onLanguageSelected: (AppLanguage) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val tokenConfigured by ServiceLocator.apiTokenRepository.hasToken.collectAsStateWithLifecycle()
     var state by rememberSaveable(stateSaver = SettingsSheetStateSaver) {
         mutableStateOf(SettingsSheetState())
     }
@@ -240,7 +243,13 @@ private fun MainSettingsScreen(
 @Composable
 private fun ApiTokenScreen(
     onBack: () -> Unit,
-    viewModel: ApiTokenViewModel = viewModel(),
+    viewModel: ApiTokenViewModel = viewModel(
+        factory = remember {
+            viewModelFactory {
+                initializer { ApiTokenViewModel(repository = ServiceLocator.apiTokenRepository) }
+            }
+        },
+    ),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Column(

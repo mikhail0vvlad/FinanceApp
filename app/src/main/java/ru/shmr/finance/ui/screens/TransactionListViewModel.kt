@@ -3,22 +3,18 @@ package ru.shmr.finance.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import java.time.LocalDate
-import java.time.Clock
-import java.time.Duration
-import java.time.ZonedDateTime
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.domain.model.AppError
@@ -27,27 +23,32 @@ import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.domain.repository.CategoriesRepository
 import ru.shmr.finance.domain.repository.TransactionsRepository
 
+/**
+ * Backs the Expenses/Income tabs: for whichever single day [selectedDate] currently holds, shows
+ * the Room cache first and kicks off a best-effort remote refresh for that day. [selectedDate] is
+ * owned by the shared tabs ViewModel so Expenses and Income always agree on the visible day.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class TransactionListViewModel(
     private val isIncome: Boolean,
     private val accountsRepository: AccountsRepository,
     private val categoriesRepository: CategoriesRepository,
     private val transactionsRepository: TransactionsRepository,
-    private val clock: Clock = Clock.systemDefaultZone(),
+    private val selectedDate: StateFlow<LocalDate>,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : ViewModel() {
 
-    private val currentDate = MutableStateFlow(LocalDate.now(clock))
     private val refreshError = MutableStateFlow<AppError?>(null)
     private val initialLoadFinished = MutableStateFlow(false)
     private var refreshJob: Job? = null
 
-    private val transactionsForCurrentDate = currentDate.flatMapLatest { date ->
+    private val transactionsForSelectedDate = selectedDate.flatMapLatest { date ->
         transactionsRepository.observeTransactionsForPeriod(date, date)
     }
 
     val state = combine(
         accountsRepository.observeAccounts(),
-        transactionsForCurrentDate,
+        transactionsForSelectedDate,
         refreshError,
         initialLoadFinished,
     ) { accounts, transactions, error, loaded ->
@@ -69,7 +70,7 @@ abstract class TransactionListViewModel(
             else -> UiState.Empty
         }
     }
-        .flowOn(Dispatchers.Default)
+        .flowOn(dispatchers.default)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -77,22 +78,14 @@ abstract class TransactionListViewModel(
         )
 
     init {
-        refresh()
         viewModelScope.launch {
-            while (currentCoroutineContext().isActive) {
-                val now = ZonedDateTime.now(clock)
-                val nextDay = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
-                delay(Duration.between(now, nextDay).toMillis().coerceAtLeast(1_000))
-                refresh()
-            }
+            selectedDate.collect { date -> refresh(date) }
         }
     }
 
-    fun retry() = refresh()
+    fun retry() = refresh(selectedDate.value)
 
-    private fun refresh() {
-        val today = LocalDate.now(clock)
-        currentDate.value = today
+    private fun refresh(date: LocalDate) {
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch {
             refreshError.value = null
@@ -111,8 +104,8 @@ abstract class TransactionListViewModel(
             accounts.filter { it.id > 0 }.forEach { account ->
                 val result = transactionsRepository.refreshTransactionsForPeriod(
                     accountId = account.id,
-                    startDate = today,
-                    endDate = today,
+                    startDate = date,
+                    endDate = date,
                 )
                 if (result is AppResult.Failure && refreshError.value == null) {
                     refreshError.value = result.error

@@ -3,10 +3,11 @@ package ru.shmr.finance.data.security
 import android.content.Context
 import android.annotation.SuppressLint
 import java.util.concurrent.atomic.AtomicReference
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.domain.model.AppError
 import ru.shmr.finance.domain.model.ValidationIssue
@@ -37,17 +38,20 @@ internal class EncryptedApiTokenRepository(
     private val cipher: PinCipher,
     initialToken: String,
     private val onTokenChanged: () -> Unit = {},
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : ApiTokenRepository {
 
     constructor(
         context: Context,
         initialToken: String,
         onTokenChanged: () -> Unit = {},
+        dispatchers: DispatcherProvider = DefaultDispatcherProvider,
     ) : this(
         storage = SharedPreferencesApiTokenStorage(context),
         cipher = KeystoreCipher(keyAlias = API_TOKEN_KEY_ALIAS),
         initialToken = initialToken,
         onTokenChanged = onTokenChanged,
+        dispatchers = dispatchers,
     )
 
     private val token = AtomicReference(
@@ -63,7 +67,7 @@ internal class EncryptedApiTokenRepository(
         if (normalized.isEmpty()) {
             return AppResult.Failure(AppError.Validation(ValidationIssue.API_TOKEN_REQUIRED))
         }
-        return withContext(Dispatchers.IO) {
+        return withContext(dispatchers.io) {
             val encrypted = cipher.encrypt(normalized)
                 ?: return@withContext AppResult.Failure(AppError.Storage)
             if (!storage.write(encrypted)) {

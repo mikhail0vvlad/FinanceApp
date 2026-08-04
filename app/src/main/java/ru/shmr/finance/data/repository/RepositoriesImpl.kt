@@ -7,6 +7,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.result.map
 import ru.shmr.finance.data.local.LocalFinanceDataSource
@@ -26,10 +28,11 @@ import ru.shmr.finance.domain.repository.TransactionsRepository
 import ru.shmr.finance.domain.validation.TransactionDraft
 import ru.shmr.finance.domain.validation.TransactionDraftValidator
 
-class AccountsRepositoryImpl(
+internal class AccountsRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
     private val syncScheduler: SyncScheduler,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : AccountsRepository {
 
     private val refreshGate = SuccessfulRefreshGate<Unit>()
@@ -49,7 +52,7 @@ class AccountsRepositoryImpl(
     override suspend fun refreshAccounts(): AppResult<Unit> =
         refreshGate.run(Unit, reuseRecentSuccess = false, ::loadRemoteAccounts)
 
-    private suspend fun loadRemoteAccounts(): AppResult<Unit> = safeApiCall {
+    private suspend fun loadRemoteAccounts(): AppResult<Unit> = safeApiCall(dispatchers.io) {
         local.upsertRemoteAccounts(api.getAccounts().map { it.toEntity() })
     }
 
@@ -57,7 +60,7 @@ class AccountsRepositoryImpl(
         if (local.hasTransactions(accountId)) return true
         if (accountId < 0) return false
 
-        val remote = safeApiCall {
+        val remote = safeApiCall(dispatchers.io) {
             api.getTransactionsForPeriod(
                 accountId = accountId,
                 startDate = LocalDate.of(1970, 1, 1).format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -93,9 +96,10 @@ class AccountsRepositoryImpl(
     }
 }
 
-class CategoriesRepositoryImpl(
+internal class CategoriesRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : CategoriesRepository {
 
     private val refreshGate = SuccessfulRefreshGate<Unit>()
@@ -115,15 +119,16 @@ class CategoriesRepositoryImpl(
     override suspend fun refreshCategories(): AppResult<Unit> =
         refreshGate.run(Unit, reuseRecentSuccess = false, ::loadRemoteCategories)
 
-    private suspend fun loadRemoteCategories(): AppResult<Unit> = safeApiCall {
+    private suspend fun loadRemoteCategories(): AppResult<Unit> = safeApiCall(dispatchers.io) {
         local.upsertCategories(api.getCategories().map { it.toEntity() })
     }
 }
 
-class TransactionsRepositoryImpl(
+internal class TransactionsRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
     private val syncScheduler: SyncScheduler,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : TransactionsRepository {
 
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
@@ -142,7 +147,7 @@ class TransactionsRepositoryImpl(
         key = TransactionRefreshKey(accountId, startDate, endDate),
         reuseRecentSuccess = true,
     ) {
-        safeApiCall {
+        safeApiCall(dispatchers.io) {
             val remote = api.getTransactionsForPeriod(
                 accountId = accountId,
                 startDate = startDate.format(dateFormatter),

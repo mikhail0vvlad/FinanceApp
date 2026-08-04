@@ -54,6 +54,8 @@
     <string name="cd_analysis">Analyse</string>
     <string name="cd_settings">Paramètres</string>
     <string name="cd_back">Retour</string>
+    <string name="cd_pick_date">Choisir une date</string>
+    <string name="date_today">Aujourd’hui</string>
     <string name="error_no_internet">Pas de connexion Internet</string>
     <string name="offline_changes_saved_locally">Pas d’Internet — les modifications seront enregistrées sur cet appareil</string>
     <string name="error_unauthorized">Échec de l’autorisation. Vérifiez le jeton API</string>

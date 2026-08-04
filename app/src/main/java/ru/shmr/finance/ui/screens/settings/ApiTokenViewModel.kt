@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.shmr.finance.core.result.AppResult
-import ru.shmr.finance.di.ServiceLocator
 import ru.shmr.finance.domain.model.AppError
 import ru.shmr.finance.domain.repository.ApiTokenRepository
 
@@ -23,7 +22,7 @@ data class ApiTokenState(
 )
 
 class ApiTokenViewModel(
-    private val repository: ApiTokenRepository = ServiceLocator.apiTokenRepository,
+    private val repository: ApiTokenRepository,
 ) : ViewModel() {
     private val _state = MutableStateFlow(
         ApiTokenState(isConfigured = repository.hasToken.value),

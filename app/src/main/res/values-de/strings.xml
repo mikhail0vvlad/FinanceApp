@@ -54,6 +54,8 @@
     <string name="cd_analysis">Analyse</string>
     <string name="cd_settings">Einstellungen</string>
     <string name="cd_back">Zurück</string>
+    <string name="cd_pick_date">Datum auswählen</string>
+    <string name="date_today">Heute</string>
     <string name="error_no_internet">Keine Internetverbindung</string>
     <string name="offline_changes_saved_locally">Kein Internet — Änderungen werden auf diesem Gerät gespeichert</string>
     <string name="error_unauthorized">Autorisierung fehlgeschlagen. API-Token prüfen</string>

@@ -80,7 +80,7 @@ interface SyncRemoteGateway {
     suspend fun updateTransaction(transaction: PendingTransaction): SyncCallResult<PendingTransaction>
 }
 
-class SyncEngine(
+internal class SyncEngine(
     private val queue: SyncQueue,
     private val remote: SyncRemoteGateway,
 ) {
@@ -149,7 +149,7 @@ class SyncEngine(
 }
 
 /** Serializes every entry into the full sync pipeline inside this app process. */
-class SyncCoordinator {
+internal class SyncCoordinator {
     private val mutex = Mutex()
 
     suspend fun run(block: suspend () -> SyncOutcome): SyncOutcome = mutex.withLock { block() }

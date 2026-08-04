@@ -2,13 +2,15 @@ package ru.shmr.finance.ui.screens.accounts
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +19,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ru.shmr.finance.R
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.di.ServiceLocator
@@ -28,7 +32,8 @@ import ru.shmr.finance.ui.screens.ListScreenData
 import ru.shmr.finance.ui.screens.toListItem
 
 class AccountsViewModel(
-    private val accountsRepository: AccountsRepository = ServiceLocator.accountsRepository,
+    private val accountsRepository: AccountsRepository,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : ViewModel() {
 
     private val refreshError = MutableStateFlow<AppError?>(null)
@@ -55,7 +60,7 @@ class AccountsViewModel(
             else -> UiState.Empty
         }
     }
-        .flowOn(Dispatchers.Default)
+        .flowOn(dispatchers.default)
         .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -83,7 +88,13 @@ class AccountsViewModel(
 fun AccountsScreen(
     modifier: Modifier = Modifier,
     onAccountClick: (Int) -> Unit = {},
-    viewModel: AccountsViewModel = viewModel(),
+    viewModel: AccountsViewModel = viewModel(
+        factory = remember {
+            viewModelFactory {
+                initializer { AccountsViewModel(accountsRepository = ServiceLocator.accountsRepository) }
+            }
+        },
+    ),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     ListScreen(

@@ -1,5 +1,6 @@
 package ru.shmr.finance.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +20,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ru.shmr.finance.R
 
@@ -26,6 +29,7 @@ import ru.shmr.finance.R
 fun AppTopBar(
     date: String,
     modifier: Modifier = Modifier,
+    onDateClick: () -> Unit = {},
     onAnalysisClick: () -> Unit = {},
     onFilterClick: () -> Unit = {},
 ) {
@@ -37,7 +41,7 @@ fun AppTopBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        DateChip(date)
+        DateChip(date, onClick = onDateClick)
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onAnalysisClick) {
                 Icon(
@@ -58,13 +62,17 @@ fun AppTopBar(
 }
 
 @Composable
-private fun DateChip(date: String) {
+private fun DateChip(date: String, onClick: () -> Unit) {
+    val pickDateDescription = stringResource(R.string.cd_pick_date)
     Surface(
         shape = RoundedCornerShape(24.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = pickDateDescription }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

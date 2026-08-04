@@ -6,8 +6,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Clock
 import java.time.LocalDate
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -20,9 +18,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
-import ru.shmr.finance.di.ServiceLocator
 import ru.shmr.finance.domain.model.Account
 import ru.shmr.finance.domain.model.AppError
 import ru.shmr.finance.domain.model.Money
@@ -33,10 +32,10 @@ import ru.shmr.finance.domain.repository.TransactionsRepository
 
 class AnalyticsViewModel(
     startWithIncome: Boolean,
-    private val accountsRepository: AccountsRepository = ServiceLocator.accountsRepository,
-    private val categoriesRepository: CategoriesRepository = ServiceLocator.categoriesRepository,
-    private val transactionsRepository: TransactionsRepository = ServiceLocator.transactionsRepository,
-    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val accountsRepository: AccountsRepository,
+    private val categoriesRepository: CategoriesRepository,
+    private val transactionsRepository: TransactionsRepository,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
     private val clock: Clock = Clock.systemDefaultZone(),
 ) : ViewModel() {
 
@@ -119,7 +118,7 @@ class AnalyticsViewModel(
             val refreshError = refreshServerAccounts(accountsToQuery, filters)
 
             val accountIds = accountsToQuery.mapTo(mutableSetOf()) { it.id }
-            val transactions = withContext(computeDispatcher) {
+            val transactions = withContext(dispatchers.default) {
                 transactionsRepository
                     .observeTransactionsForPeriod(filters.startDate, filters.endDate)
                     .first()
@@ -139,7 +138,7 @@ class AnalyticsViewModel(
                 _effects.emit(AnalyticsEffect.ShowError(refreshError))
             }
 
-            val ui = withContext(computeDispatcher) {
+            val ui = withContext(dispatchers.default) {
                 buildContent(transactions, filters, accountsToQuery.first())
             }
             _state.update { it.copy(ui = ui) }

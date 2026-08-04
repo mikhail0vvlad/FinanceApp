@@ -4,7 +4,7 @@ import java.io.IOException
 import okhttp3.Interceptor
 import okhttp3.Response
 
-class AuthInterceptor(private val token: () -> String) : Interceptor {
+internal class AuthInterceptor(private val token: () -> String) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val value = token().trim()
         val request = if (value.isEmpty()) {
@@ -19,7 +19,7 @@ class AuthInterceptor(private val token: () -> String) : Interceptor {
 }
 
 // Сервер периодически отвечает 5xx — повторяем запрос с растущей паузой.
-class RetryInterceptor(
+internal class RetryInterceptor(
     private val maxRetries: Int = 3,
     private val retryDelayMillis: Long = 2_000,
     private val sleeper: (Long) -> Unit = Thread::sleep,

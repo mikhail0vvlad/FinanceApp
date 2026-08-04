@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.shmr.finance.R
 import ru.shmr.finance.core.state.UiState
+import ru.shmr.finance.di.ServiceLocator
 import ru.shmr.finance.ui.components.EmptyState
 import ru.shmr.finance.ui.components.ErrorState
 import ru.shmr.finance.ui.components.ListItemRow
@@ -74,7 +75,14 @@ fun AnalyticsScreen(
     modifier: Modifier = Modifier,
     viewModel: AnalyticsViewModel = viewModel(
         factory = viewModelFactory {
-            initializer { AnalyticsViewModel(startWithIncome) }
+            initializer {
+                AnalyticsViewModel(
+                    startWithIncome = startWithIncome,
+                    accountsRepository = ServiceLocator.accountsRepository,
+                    categoriesRepository = ServiceLocator.categoriesRepository,
+                    transactionsRepository = ServiceLocator.transactionsRepository,
+                )
+            }
         },
     ),
 ) {

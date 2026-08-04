@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.domain.model.Account
@@ -276,9 +277,17 @@ class AnalyticsViewModelTest {
         accountsRepository = FakeAccountsRepository(accounts),
         categoriesRepository = FakeCategoriesRepository(categories),
         transactionsRepository = transactionsRepository,
-        computeDispatcher = computeDispatcher,
+        dispatchers = TestDispatcherProvider(computeDispatcher),
         clock = Clock.fixed(Instant.parse("2026-07-27T12:00:00Z"), ZoneOffset.UTC),
     )
+
+    private class TestDispatcherProvider(
+        dispatcher: CoroutineDispatcher,
+    ) : DispatcherProvider {
+        override val io: CoroutineDispatcher = dispatcher
+        override val default: CoroutineDispatcher = dispatcher
+        override val main: CoroutineDispatcher = dispatcher
+    }
 
     private fun transaction(
         localId: String,

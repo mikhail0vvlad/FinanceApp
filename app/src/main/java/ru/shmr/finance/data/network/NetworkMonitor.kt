@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ru.shmr.finance.data.sync.SyncScheduler
 
-class NetworkMonitor(
+internal class NetworkMonitor(
     context: Context,
     private val syncScheduler: SyncScheduler,
 ) {
