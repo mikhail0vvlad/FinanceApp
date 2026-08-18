@@ -2,6 +2,8 @@ package ru.shmr.finance.data.sync
 
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.data.mapper.parseDateTime
 import ru.shmr.finance.data.network.FinanceApi
@@ -11,12 +13,13 @@ import ru.shmr.finance.data.network.dto.TransactionRequestDto
 import ru.shmr.finance.data.network.safeApiCall
 import ru.shmr.finance.domain.model.AppError
 
-class RemoteSyncGateway(
+internal class RemoteSyncGateway(
     private val api: FinanceApi,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : SyncRemoteGateway {
 
     override suspend fun createAccount(account: PendingAccount): SyncCallResult<PendingAccount> =
-        safeApiCall {
+        safeApiCall(dispatchers.io) {
             api.createAccount(
                 AccountCreateRequestDto(
                     name = account.name,
@@ -37,7 +40,7 @@ class RemoteSyncGateway(
         }
 
     override suspend fun updateAccount(account: PendingAccount): SyncCallResult<PendingAccount> =
-        safeApiCall {
+        safeApiCall(dispatchers.io) {
             api.updateAccount(
                 id = account.id,
                 request = AccountUpdateRequestDto(
@@ -59,7 +62,7 @@ class RemoteSyncGateway(
 
     override suspend fun createTransaction(
         transaction: PendingTransaction,
-    ): SyncCallResult<PendingTransaction> = safeApiCall {
+    ): SyncCallResult<PendingTransaction> = safeApiCall(dispatchers.io) {
         api.createTransaction(transaction.toRequest())
     }.toSyncResult { response ->
         transaction.copy(
@@ -77,7 +80,7 @@ class RemoteSyncGateway(
         transaction: PendingTransaction,
     ): SyncCallResult<PendingTransaction> {
         val serverId = transaction.serverId ?: return SyncCallResult.ItemPermanentFailure
-        return safeApiCall {
+        return safeApiCall(dispatchers.io) {
             api.updateTransaction(serverId, transaction.toRequest())
         }.toSyncResult { response ->
             transaction.copy(
@@ -110,6 +113,10 @@ private inline fun <T, R> AppResult<T>.toSyncResult(
     is AppResult.Failure -> when (error) {
         AppError.NoInternet, is AppError.Server -> SyncCallResult.RetryableFailure
         AppError.Unauthorized -> SyncCallResult.GlobalFatalFailure
-        AppError.Unknown -> SyncCallResult.ItemPermanentFailure
+        is AppError.Client,
+        is AppError.Validation,
+        AppError.Storage,
+        AppError.Unknown,
+        -> SyncCallResult.ItemPermanentFailure
     }
 }

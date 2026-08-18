@@ -15,12 +15,12 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "ru.shmr.finance"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ru.shmr.finance"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -37,13 +37,21 @@ android {
         buildConfigField(
             "String",
             "API_TOKEN",
-            "\"${localProperties.getProperty("API_TOKEN") ?: ""}\"",
+            "\"\"",
         )
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "String",
+                "API_TOKEN",
+                "\"${localProperties.getProperty("API_TOKEN") ?: ""}\"",
+            )
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -62,6 +70,12 @@ android {
         compose = true
         buildConfig = true
     }
+    sourceSets["androidTest"].assets.srcDir("$projectDir/schemas")
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 dependencies {
@@ -69,6 +83,8 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.error.prone.annotations)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -93,6 +109,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockwebserver)
@@ -102,6 +119,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
 
 ksp {

@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +25,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -36,18 +38,13 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import ru.shmr.finance.R
-import ru.shmr.finance.core.state.UiState
 import ru.shmr.finance.di.ServiceLocator
-import ru.shmr.finance.domain.model.AppError
 import ru.shmr.finance.domain.model.AppSettings
-import ru.shmr.finance.domain.model.Category
 import ru.shmr.finance.domain.model.SecurityState
 import ru.shmr.finance.ui.components.AppTopBar
 import ru.shmr.finance.ui.components.OfflineStatusBanner
+import ru.shmr.finance.ui.components.SingleDatePickerDialog
 import ru.shmr.finance.ui.lock.LocalAppLocked
 import ru.shmr.finance.ui.navigation.Destination
 import ru.shmr.finance.ui.screens.accounts.AccountsScreen
@@ -100,33 +97,39 @@ fun FinanceApp() {
 }
 
 @Composable
-private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
+private fun TabsScreen(
+    onAnalysisClick: (income: Boolean) -> Unit,
+    viewModel: TabsViewModel = viewModel(
+        factory = remember {
+            viewModelFactory {
+                initializer {
+                    TabsViewModel(
+                        isOnline = ServiceLocator.networkMonitor.isOnline,
+                        settingsRepository = ServiceLocator.settingsRepository,
+                        securityRepository = ServiceLocator.securityRepository,
+                        categoriesRepository = ServiceLocator.categoriesRepository,
+                        apiTokenRepository = ServiceLocator.apiTokenRepository,
+                    )
+                }
+            }
+        },
+    ),
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
-    val isOnline by ServiceLocator.networkMonitor.isOnline.collectAsStateWithLifecycle()
-    val settings by ServiceLocator.settingsRepository.settings.collectAsStateWithLifecycle(
-        initialValue = AppSettings(),
-    )
-    val security by ServiceLocator.securityRepository.state.collectAsStateWithLifecycle(
-        initialValue = SecurityState(),
-    )
-    val categoriesFlow = remember {
-        ServiceLocator.categoriesRepository.observeCategories()
-            .map<List<Category>, UiState<List<Category>>> { categories ->
-                if (categories.isEmpty()) UiState.Empty else UiState.Content(categories)
-            }
-            .catch { emit(UiState.Error(AppError.Unknown)) }
-    }
-    val categoriesState by categoriesFlow.collectAsStateWithLifecycle(
-        initialValue = UiState.Loading,
-    )
-    val settingsScope = rememberCoroutineScope()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle(initialValue = AppSettings())
+    val security by viewModel.security.collectAsStateWithLifecycle(initialValue = SecurityState())
+    val tokenConfigured by viewModel.tokenConfigured.collectAsStateWithLifecycle(initialValue = false)
+    val categoriesState by viewModel.categoriesState.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
     var transactionEditorIncome by rememberSaveable { mutableStateOf<Boolean?>(null) }
     var transactionEditorLocalId by rememberSaveable { mutableStateOf<String?>(null) }
     var accountEditorOpen by rememberSaveable { mutableStateOf(false) }
     var accountEditorId by rememberSaveable { mutableStateOf<Int?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var datePickerOpen by rememberSaveable { mutableStateOf(false) }
     val transactionEditorTarget = transactionEditorIncome?.let {
         TransactionEditorTarget(isIncome = it, localId = transactionEditorLocalId)
     }
@@ -136,14 +139,19 @@ private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
     }
     val configuration = LocalConfiguration.current
     val locale = configuration.locales[0]
-    val todayLabel = remember(locale) {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM", locale))
+    val today = LocalDate.now()
+    val dateLabel = if (selectedDate == today) {
+        stringResource(R.string.date_today)
+    } else {
+        selectedDate.format(DateTimeFormatter.ofPattern("d MMMM", locale))
     }
 
     Scaffold(
         topBar = {
             AppTopBar(
-                date = todayLabel,
+                date = dateLabel,
+                isToday = selectedDate == today,
+                onDateClick = { datePickerOpen = true },
                 onAnalysisClick = {
                     val income = currentDestination
                         ?.hierarchy
@@ -218,6 +226,7 @@ private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
                 ) {
                     composable(Destination.Expenses.route) {
                         ExpensesScreen(
+                            selectedDate = viewModel.selectedDate,
                             onTransactionClick = {
                                 openTransactionEditor(false, it)
                             },
@@ -225,6 +234,7 @@ private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
                     }
                     composable(Destination.Income.route) {
                         IncomeScreen(
+                            selectedDate = viewModel.selectedDate,
                             onTransactionClick = {
                                 openTransactionEditor(true, it)
                             },
@@ -274,22 +284,19 @@ private fun TabsScreen(onAnalysisClick: (income: Boolean) -> Unit) {
             settings = settings,
             security = security,
             categoriesState = categoriesState,
-            onCurrencySelected = { currency ->
-                settingsScope.launch {
-                    ServiceLocator.settingsRepository.setCurrency(currency)
-                }
-            },
-            onThemeModeSelected = { mode ->
-                settingsScope.launch {
-                    ServiceLocator.settingsRepository.setThemeMode(mode)
-                }
-            },
-            onLanguageSelected = { language ->
-                settingsScope.launch {
-                    ServiceLocator.settingsRepository.setLanguage(language)
-                }
-            },
+            tokenConfigured = tokenConfigured,
+            onCurrencySelected = viewModel::setCurrency,
+            onThemeModeSelected = viewModel::setThemeMode,
+            onLanguageSelected = viewModel::setLanguage,
             onDismiss = { settingsOpen = false },
+        )
+    }
+
+    if (datePickerOpen && !appLocked) {
+        SingleDatePickerDialog(
+            selectedDate = selectedDate,
+            onDateSelected = viewModel::selectDate,
+            onDismiss = { datePickerOpen = false },
         )
     }
 }

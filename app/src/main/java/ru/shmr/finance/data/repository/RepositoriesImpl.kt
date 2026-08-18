@@ -1,12 +1,21 @@
 package ru.shmr.finance.data.repository
 
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.core.result.AppResult
 import ru.shmr.finance.core.result.map
 import ru.shmr.finance.data.local.LocalFinanceDataSource
+import ru.shmr.finance.data.local.entity.TransactionEntity
 import ru.shmr.finance.data.mapper.toEntity
 import ru.shmr.finance.data.network.FinanceApi
 import ru.shmr.finance.data.network.safeApiCall
@@ -16,22 +25,26 @@ import ru.shmr.finance.domain.model.AccountDraft
 import ru.shmr.finance.domain.model.AppError
 import ru.shmr.finance.domain.model.Category
 import ru.shmr.finance.domain.model.Transaction
+import ru.shmr.finance.domain.model.ValidationIssue
 import ru.shmr.finance.domain.repository.AccountsRepository
 import ru.shmr.finance.domain.repository.CategoriesRepository
 import ru.shmr.finance.domain.repository.TransactionsRepository
 import ru.shmr.finance.domain.validation.TransactionDraft
 import ru.shmr.finance.domain.validation.TransactionDraftValidator
 
-class AccountsRepositoryImpl(
+internal class AccountsRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
     private val syncScheduler: SyncScheduler,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : AccountsRepository {
+
+    private val refreshGate = SuccessfulRefreshGate<Unit>()
 
     override fun observeAccounts(): Flow<List<Account>> = local.observeAccounts()
 
     override suspend fun getAccounts(): AppResult<List<Account>> {
-        val refresh = refreshAccounts()
+        val refresh = refreshGate.run(Unit, reuseRecentSuccess = true, ::loadRemoteAccounts)
         val cached = local.getAccounts()
         return if (cached.isNotEmpty() || refresh is AppResult.Success) {
             AppResult.Success(cached)
@@ -40,7 +53,10 @@ class AccountsRepositoryImpl(
         }
     }
 
-    override suspend fun refreshAccounts(): AppResult<Unit> = safeApiCall {
+    override suspend fun refreshAccounts(): AppResult<Unit> =
+        refreshGate.run(Unit, reuseRecentSuccess = false, ::loadRemoteAccounts)
+
+    private suspend fun loadRemoteAccounts(): AppResult<Unit> = safeApiCall(dispatchers.io) {
         local.upsertRemoteAccounts(api.getAccounts().map { it.toEntity() })
     }
 
@@ -48,7 +64,7 @@ class AccountsRepositoryImpl(
         if (local.hasTransactions(accountId)) return true
         if (accountId < 0) return false
 
-        val remote = safeApiCall {
+        val remote = safeApiCall(dispatchers.io) {
             api.getTransactionsForPeriod(
                 accountId = accountId,
                 startDate = LocalDate.of(1970, 1, 1).format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -68,25 +84,34 @@ class AccountsRepositoryImpl(
             existing.balance.currency != draft.currency &&
             hasTransactions(existing.id)
         ) {
-            return AppResult.Failure(AppError.Unknown)
+            return AppResult.Failure(
+                AppError.Validation(ValidationIssue.ACCOUNT_CURRENCY_LOCKED),
+            )
+        }
+        if (draft.name.isBlank()) {
+            return AppResult.Failure(AppError.Validation(ValidationIssue.ACCOUNT_NAME_REQUIRED))
+        }
+        if (draft.balance.signum() < 0) {
+            return AppResult.Failure(AppError.Validation(ValidationIssue.BALANCE_NEGATIVE))
         }
         return localResult {
-            require(draft.name.isNotBlank()) { "Account name is required" }
-            require(draft.balance.signum() >= 0) { "Balance cannot be negative" }
             local.saveAccount(draft).also { syncScheduler.enqueueOneTime() }
         }
     }
 }
 
-class CategoriesRepositoryImpl(
+internal class CategoriesRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : CategoriesRepository {
+
+    private val refreshGate = SuccessfulRefreshGate<Unit>()
 
     override fun observeCategories(): Flow<List<Category>> = local.observeCategories()
 
     override suspend fun getCategories(): AppResult<List<Category>> {
-        val refresh = refreshCategories()
+        val refresh = refreshGate.run(Unit, reuseRecentSuccess = true, ::loadRemoteCategories)
         val cached = local.getCategories()
         return if (cached.isNotEmpty() || refresh is AppResult.Success) {
             AppResult.Success(cached)
@@ -95,18 +120,24 @@ class CategoriesRepositoryImpl(
         }
     }
 
-    override suspend fun refreshCategories(): AppResult<Unit> = safeApiCall {
+    override suspend fun refreshCategories(): AppResult<Unit> =
+        refreshGate.run(Unit, reuseRecentSuccess = false, ::loadRemoteCategories)
+
+    private suspend fun loadRemoteCategories(): AppResult<Unit> = safeApiCall(dispatchers.io) {
         local.upsertCategories(api.getCategories().map { it.toEntity() })
     }
 }
 
-class TransactionsRepositoryImpl(
+internal class TransactionsRepositoryImpl(
     private val api: FinanceApi,
     private val local: LocalFinanceDataSource,
     private val syncScheduler: SyncScheduler,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
+    private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : TransactionsRepository {
 
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+    private val refreshGate = SuccessfulRefreshGate<TransactionRefreshKey>()
 
     override fun observeTransactionsForPeriod(
         startDate: LocalDate,
@@ -117,13 +148,20 @@ class TransactionsRepositoryImpl(
         accountId: Int,
         startDate: LocalDate,
         endDate: LocalDate,
-    ): AppResult<Unit> = safeApiCall {
-        val remote = api.getTransactionsForPeriod(
-            accountId = accountId,
-            startDate = startDate.format(dateFormatter),
-            endDate = endDate.format(dateFormatter),
-        ).map { it.toEntity() }
-        local.replaceRemoteTransactions(accountId, startDate, endDate, remote)
+    ): AppResult<Unit> = refreshGate.run(
+        key = TransactionRefreshKey(accountId, startDate, endDate),
+        reuseRecentSuccess = true,
+    ) {
+        safeApiCall(dispatchers.io) {
+            val serverDates = serverDateRangeForLocalPeriod(startDate, endDate, zoneId)
+            val remote = api.getTransactionsForPeriod(
+                accountId = accountId,
+                startDate = serverDates.startDate.format(dateFormatter),
+                endDate = serverDates.endDate.format(dateFormatter),
+            ).map { it.toEntity(zoneId) }
+                .filterForLocalPeriod(startDate, endDate)
+            local.replaceRemoteTransactions(accountId, startDate, endDate, remote)
+        }
     }
 
     override suspend fun getTransaction(localId: String): Transaction? =
@@ -134,7 +172,9 @@ class TransactionsRepositoryImpl(
         existingLocalId: String?,
     ): AppResult<Transaction> {
         val validation = TransactionDraftValidator.validate(draft)
-        if (!validation.isValid) return AppResult.Failure(AppError.Unknown)
+        if (!validation.isValid) {
+            return AppResult.Failure(AppError.Validation(ValidationIssue.TRANSACTION_INVALID))
+        }
         return localResult {
             local.saveTransaction(
                 draft = draft,
@@ -146,10 +186,69 @@ class TransactionsRepositoryImpl(
     }
 }
 
+private data class TransactionRefreshKey(
+    val accountId: Int,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+)
+
+internal data class ServerDateRange(
+    val startDate: LocalDate,
+    val endDate: LocalDate,
+)
+
+/**
+ * The backend groups offset timestamps by their UTC calendar date. A local day can overlap two
+ * UTC dates, so fetch every server date it touches and filter mapped rows back to the local range.
+ */
+internal fun serverDateRangeForLocalPeriod(
+    startDate: LocalDate,
+    endDate: LocalDate,
+    zoneId: ZoneId,
+): ServerDateRange {
+    require(!endDate.isBefore(startDate))
+    val startInstant = startDate.atStartOfDay(zoneId).toInstant()
+    val endExclusive = endDate.plusDays(1).atStartOfDay(zoneId).toInstant()
+    return ServerDateRange(
+        startDate = startInstant.atZone(ZoneOffset.UTC).toLocalDate(),
+        endDate = endExclusive.minusNanos(1).atZone(ZoneOffset.UTC).toLocalDate(),
+    )
+}
+
+internal fun List<TransactionEntity>.filterForLocalPeriod(
+    startDate: LocalDate,
+    endDate: LocalDate,
+): List<TransactionEntity> = filter { entity ->
+    val localDate = LocalDateTime.parse(entity.transactionDate).toLocalDate()
+    !localDate.isBefore(startDate) && !localDate.isAfter(endDate)
+}
+
+private class SuccessfulRefreshGate<K : Any>(
+    private val freshnessNanos: Long = 2_000_000_000,
+    private val nanoTime: () -> Long = System::nanoTime,
+) {
+    private val locks = ConcurrentHashMap<K, Mutex>()
+    private val lastSuccess = ConcurrentHashMap<K, Long>()
+
+    suspend fun run(
+        key: K,
+        reuseRecentSuccess: Boolean,
+        block: suspend () -> AppResult<Unit>,
+    ): AppResult<Unit> = locks.computeIfAbsent(key) { Mutex() }.withLock {
+        val now = nanoTime()
+        val recent = lastSuccess[key]?.let { now - it < freshnessNanos } == true
+        if (reuseRecentSuccess && recent) return@withLock AppResult.Success(Unit)
+
+        block().also { result ->
+            if (result is AppResult.Success) lastSuccess[key] = nanoTime()
+        }
+    }
+}
+
 private suspend inline fun <T> localResult(block: () -> T): AppResult<T> = try {
     AppResult.Success(block())
 } catch (error: CancellationException) {
     throw error
 } catch (_: Exception) {
-    AppResult.Failure(AppError.Unknown)
+    AppResult.Failure(AppError.Storage)
 }

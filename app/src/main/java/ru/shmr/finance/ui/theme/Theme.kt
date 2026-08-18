@@ -7,7 +7,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import ru.shmr.finance.domain.model.ThemeMode
@@ -88,7 +87,6 @@ fun SHMRFinanceTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colors.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars =
                 !useDarkColors
         }

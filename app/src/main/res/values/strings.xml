@@ -12,16 +12,28 @@
 
     <string name="cd_add">Добавить</string>
     <string name="cd_analysis">Анализ</string>
-    <string name="cd_history">История</string>
     <string name="cd_settings">Настройки</string>
     <string name="cd_back">Назад</string>
+    <string name="cd_pick_date">Выбрать дату</string>
+
+    <string name="date_today">Сегодня</string>
 
     <string name="error_no_internet">Нет соединения с сетью</string>
+    <string name="offline_changes_saved_locally">Нет интернета — изменения сохранятся на устройстве</string>
     <string name="error_unauthorized">Ошибка авторизации. Проверьте API-токен</string>
     <string name="error_server">Ошибка сервера (%1$d). Попробуйте позже</string>
+    <string name="error_client">Сервер отклонил запрос (код %1$d)</string>
+    <string name="error_storage">Не удалось сохранить данные на устройстве</string>
     <string name="error_unknown">Что-то пошло не так</string>
+    <string name="validation_account_name_required">Введите название счёта</string>
+    <string name="validation_balance_negative">Баланс не может быть отрицательным</string>
+    <string name="validation_account_currency_locked">Валюту счёта с операциями изменить нельзя</string>
+    <string name="validation_transaction_invalid">Проверьте данные операции</string>
+    <string name="validation_api_token_required">Введите API-токен</string>
     <string name="action_retry">Повторить</string>
     <string name="empty_no_data">Нет данных за выбранный период</string>
+    <string name="sync_status_pending">Ожидает синхронизации</string>
+    <string name="sync_status_failed">Не удалось синхронизировать. Исправьте и сохраните запись снова</string>
 
     <string name="analytics_title">Аналитика</string>
     <string name="analytics_total_for_period">Всего за период</string>
@@ -50,6 +62,34 @@
     <string name="action_done">Готово</string>
     <string name="action_cancel">Отмена</string>
     <string name="action_apply">Применить</string>
+    <string name="action_select">Выбрать</string>
+    <string name="cd_save">Сохранить</string>
+    <string name="cd_selected">Выбрано</string>
+    <string name="cd_clear_date">Отменить выбор даты</string>
+
+    <string name="editor_balance_adjustment">Корректировка баланса</string>
+    <string name="editor_currency">Валюта</string>
+    <string name="editor_account_name">Название счёта</string>
+    <string name="editor_category">Статья</string>
+    <string name="editor_date">Дата</string>
+    <string name="editor_time">Время</string>
+    <string name="editor_account">Счёт</string>
+    <string name="editor_comment">Комментарий</string>
+    <string name="editor_choose_date">Выберите дату</string>
+    <string name="editor_enter_time">Введите время</string>
+    <string name="editor_account_not_found">Счёт не найден</string>
+    <string name="editor_error_account_name">Введите название</string>
+    <string name="editor_error_non_negative_balance">Введите неотрицательный баланс</string>
+    <string name="editor_error_currency_history">Валюту счёта с операциями изменить нельзя: без курса история будет пересчитана неверно</string>
+    <string name="editor_error_account_required">Выберите счёт</string>
+    <string name="editor_error_category_required">Выберите статью</string>
+    <string name="editor_error_positive_amount">Введите сумму больше нуля</string>
+    <string name="editor_error_date_time">Выберите корректные дату и время</string>
+    <string name="editor_error_date_range">Дата вне допустимого диапазона</string>
+    <string name="editor_error_time_precision">Укажите время с точностью до минуты</string>
+    <string name="editor_error_date_required">Выберите дату</string>
+    <string name="editor_error_time_required">Введите время</string>
+    <string name="currency_rub_short">Руб.</string>
 
     <string name="settings_title">Настройки</string>
     <string name="settings_wallet">Кошелёк</string>
@@ -59,15 +99,19 @@
     <string name="settings_theme">Тема оформления</string>
     <string name="settings_language">Язык</string>
     <string name="settings_security">Безопасность</string>
+    <string name="settings_api_token">API-доступ</string>
+    <string name="settings_api_token_set">Настроен</string>
+    <string name="settings_api_token_not_set">Не настроен</string>
+    <string name="settings_api_token_explanation">Токен хранится на устройстве в зашифрованном виде и не включается в релизное приложение.</string>
+    <string name="settings_api_token_input">Новый API-токен</string>
+    <string name="settings_api_token_saved">Токен сохранён. Синхронизация запущена</string>
+    <string name="settings_api_token_replace_hint">Токен уже настроен. Введите новый, чтобы заменить его</string>
     <string name="settings_pin">ПИН-код</string>
     <string name="settings_biometrics">Биометрия</string>
-    <string name="settings_coming_later">В следующем этапе</string>
-    <string name="settings_currency_explanation">Выбранная валюта используется только по умолчанию для новых счетов. Существующие суммы не конвертируются.</string>
     <string name="settings_articles_search">Поиск по статьям</string>
     <string name="settings_clear_search">Очистить поиск</string>
     <string name="settings_articles_empty">В кэше пока нет статей</string>
     <string name="settings_articles_no_results">Ничего не найдено</string>
-    <string name="settings_security_next_chat">Настройка безопасности появится на следующем этапе.</string>
 
     <string name="currency_rub">Российский рубль</string>
     <string name="currency_usd">Доллар США</string>
@@ -85,7 +129,7 @@
     <string name="language_french">Français</string>
     <string name="language_spanish">Español</string>
 
-    <string name="cd_pin_progress">Введено %1$d из %2$d цифр</string>
+    <string name="cd_pin_progress">Введено: %1$d из %2$d</string>
     <string name="cd_pin_backspace">Стереть цифру</string>
 
     <string name="security_pin_set">Задан</string>

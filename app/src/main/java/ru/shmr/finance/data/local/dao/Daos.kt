@@ -80,6 +80,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE serverId = :serverId")
     suspend fun getByServerId(serverId: Int): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE serverId IN (:serverIds)")
+    suspend fun getByServerIds(serverIds: List<Int>): List<TransactionEntity>
+
     @Query("SELECT * FROM transactions WHERE syncAction != 'NONE' ORDER BY transactionDate")
     suspend fun getPending(): List<TransactionEntity>
 
@@ -91,6 +94,9 @@ interface TransactionDao {
 
     @Upsert
     suspend fun upsert(transaction: TransactionEntity)
+
+    @Upsert
+    suspend fun upsertAll(transactions: List<TransactionEntity>)
 
     @Query(
         """

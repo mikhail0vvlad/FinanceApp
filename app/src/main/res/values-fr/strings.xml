@@ -1,4 +1,47 @@
 <resources>
+    <string name="action_select">Sélectionner</string>
+    <string name="cd_save">Enregistrer</string>
+    <string name="cd_selected">Sélectionné</string>
+    <string name="cd_clear_date">Effacer la date sélectionnée</string>
+    <string name="editor_balance_adjustment">Ajustement du solde</string>
+    <string name="editor_currency">Devise</string>
+    <string name="editor_account_name">Nom du compte</string>
+    <string name="editor_category">Catégorie</string>
+    <string name="editor_date">Date</string>
+    <string name="editor_time">Heure</string>
+    <string name="editor_account">Compte</string>
+    <string name="editor_comment">Commentaire</string>
+    <string name="editor_choose_date">Choisissez une date</string>
+    <string name="editor_enter_time">Saisissez une heure</string>
+    <string name="editor_account_not_found">Compte introuvable</string>
+    <string name="editor_error_account_name">Saisissez un nom</string>
+    <string name="editor_error_non_negative_balance">Saisissez un solde positif ou nul</string>
+    <string name="editor_error_currency_history">La devise d’un compte contenant des opérations ne peut pas être modifiée sans taux de change</string>
+    <string name="editor_error_account_required">Choisissez un compte</string>
+    <string name="editor_error_category_required">Choisissez une catégorie</string>
+    <string name="editor_error_positive_amount">Saisissez un montant supérieur à zéro</string>
+    <string name="editor_error_date_time">Choisissez une date et une heure valides</string>
+    <string name="editor_error_date_range">La date est hors de la plage autorisée</string>
+    <string name="editor_error_time_precision">Saisissez l’heure à la minute près</string>
+    <string name="editor_error_date_required">Choisissez une date</string>
+    <string name="editor_error_time_required">Saisissez une heure</string>
+    <string name="currency_rub_short">RUB</string>
+    <string name="error_client">Le serveur a refusé la requête (code %1$d)</string>
+    <string name="error_storage">Impossible d’enregistrer les données sur cet appareil</string>
+    <string name="validation_account_name_required">Saisissez un nom de compte</string>
+    <string name="validation_balance_negative">Le solde ne peut pas être négatif</string>
+    <string name="validation_account_currency_locked">La devise d’un compte contenant des opérations ne peut pas être modifiée</string>
+    <string name="validation_transaction_invalid">Vérifiez les données de l’opération</string>
+    <string name="validation_api_token_required">Saisissez un jeton API</string>
+    <string name="settings_api_token">Accès API</string>
+    <string name="settings_api_token_set">Configuré</string>
+    <string name="settings_api_token_not_set">Non configuré</string>
+    <string name="settings_api_token_explanation">Le jeton est chiffré sur cet appareil et n’est pas inclus dans l’application de production.</string>
+    <string name="settings_api_token_input">Nouveau jeton API</string>
+    <string name="settings_api_token_saved">Jeton enregistré. Synchronisation lancée</string>
+    <string name="settings_api_token_replace_hint">Un jeton est configuré. Saisissez-en un nouveau pour le remplacer</string>
+    <string name="sync_status_pending">En attente de synchronisation</string>
+    <string name="sync_status_failed">Échec de la synchronisation. Modifiez puis enregistrez à nouveau</string>
     <string name="app_name">Finances</string>
     <string name="splash_subtitle">la machine de vérité financière</string>
     <string name="nav_expenses">Dépenses</string>
@@ -9,10 +52,12 @@
     <string name="balance_total">solde total</string>
     <string name="cd_add">Ajouter</string>
     <string name="cd_analysis">Analyse</string>
-    <string name="cd_history">Historique</string>
     <string name="cd_settings">Paramètres</string>
     <string name="cd_back">Retour</string>
+    <string name="cd_pick_date">Choisir une date</string>
+    <string name="date_today">Aujourd’hui</string>
     <string name="error_no_internet">Pas de connexion Internet</string>
+    <string name="offline_changes_saved_locally">Pas d’Internet — les modifications seront enregistrées sur cet appareil</string>
     <string name="error_unauthorized">Échec de l’autorisation. Vérifiez le jeton API</string>
     <string name="error_server">Erreur serveur (%1$d). Réessayez plus tard</string>
     <string name="error_unknown">Une erreur est survenue</string>
@@ -50,13 +95,10 @@
     <string name="settings_security">Sécurité</string>
     <string name="settings_pin">Code PIN</string>
     <string name="settings_biometrics">Biométrie</string>
-    <string name="settings_coming_later">À la prochaine étape</string>
-    <string name="settings_currency_explanation">La devise choisie sert uniquement de valeur par défaut pour les nouveaux comptes. Les montants existants ne sont pas convertis.</string>
     <string name="settings_articles_search">Rechercher des catégories</string>
     <string name="settings_clear_search">Effacer la recherche</string>
     <string name="settings_articles_empty">Aucune catégorie en cache</string>
     <string name="settings_articles_no_results">Aucun résultat</string>
-    <string name="settings_security_next_chat">Les réglages de sécurité seront disponibles à la prochaine étape.</string>
 
     <string name="currency_rub">Rouble russe</string>
     <string name="currency_usd">Dollar américain</string>
@@ -72,7 +114,7 @@
     <string name="language_french">Français</string>
     <string name="language_spanish">Español</string>
 
-    <string name="cd_pin_progress">%1$d chiffres sur %2$d saisis</string>
+    <string name="cd_pin_progress">Saisi : %1$d sur %2$d</string>
     <string name="cd_pin_backspace">Effacer le chiffre</string>
 
     <string name="security_pin_set">Défini</string>

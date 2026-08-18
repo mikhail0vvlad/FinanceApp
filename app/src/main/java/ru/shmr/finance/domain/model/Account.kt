@@ -6,4 +6,5 @@ data class Account(
     val balance: Money,
     val emoji: String = "💰",
     val isPending: Boolean = false,
+    val syncFailed: Boolean = false,
 )

@@ -1,12 +1,12 @@
 package ru.shmr.finance.data.security
 
 import java.security.GeneralSecurityException
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import ru.shmr.finance.core.dispatchers.DefaultDispatcherProvider
+import ru.shmr.finance.core.dispatchers.DispatcherProvider
 import ru.shmr.finance.domain.model.PinStorageError
 import ru.shmr.finance.domain.model.PinVerification
 import ru.shmr.finance.domain.model.SecurityState
@@ -24,7 +24,7 @@ internal class SecurityRepositoryImpl(
     private val credentialStorage: PinCredentialStorage,
     private val cipher: PinCipher,
     private val settingsRepository: SettingsRepository,
-    private val cryptoDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider,
 ) : SecurityRepository {
 
     override val state: Flow<SecurityState> = combine(
@@ -41,7 +41,7 @@ internal class SecurityRepositoryImpl(
     }
 
     override suspend fun setPin(pin: String): PinStorageError? {
-        val encrypted = withContext(cryptoDispatcher) {
+        val encrypted = withContext(dispatchers.default) {
             try {
                 cipher.encrypt(PinVerifierCodec.encode(PinVerifier.create(pin)))
             } catch (error: GeneralSecurityException) {
@@ -60,7 +60,7 @@ internal class SecurityRepositoryImpl(
         val encrypted = credentialStorage.encrypted.first()
             ?: return PinVerification.Unavailable(PinStorageError.CREDENTIAL_UNREADABLE)
 
-        return withContext(cryptoDispatcher) {
+        return withContext(dispatchers.default) {
             val record = cipher.decrypt(encrypted)?.let(PinVerifierCodec::decode)
                 ?: return@withContext PinVerification.Unavailable(
                     PinStorageError.CREDENTIAL_UNREADABLE,

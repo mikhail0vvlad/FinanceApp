@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import ru.shmr.finance.data.sync.SyncAction
+import ru.shmr.finance.data.sync.SyncFailure
 
 @Entity(tableName = "accounts")
 data class AccountEntity(
@@ -17,6 +18,9 @@ data class AccountEntity(
     val syncBalance: String,
     val currency: String,
     val syncAction: SyncAction = SyncAction.NONE,
+    val revision: Long = 0,
+    val syncFailure: SyncFailure? = null,
+    val transactionSyncCursor: String? = null,
 )
 
 @Entity(tableName = "categories")
@@ -60,6 +64,8 @@ data class TransactionEntity(
     val transactionDate: String,
     val comment: String?,
     val syncAction: SyncAction = SyncAction.NONE,
+    val revision: Long = 0,
+    val syncFailure: SyncFailure? = null,
 )
 
 data class TransactionRecord(

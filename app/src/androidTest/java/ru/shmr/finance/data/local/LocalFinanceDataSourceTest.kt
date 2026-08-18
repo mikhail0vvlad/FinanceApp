@@ -9,6 +9,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.first
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -18,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import ru.shmr.finance.data.local.entity.AccountEntity
 import ru.shmr.finance.data.local.entity.CategoryEntity
+import ru.shmr.finance.data.local.entity.TransactionEntity
 import ru.shmr.finance.data.sync.PendingAccount
 import ru.shmr.finance.data.sync.PendingTransaction
 import ru.shmr.finance.data.sync.SyncAction
@@ -100,6 +102,27 @@ class LocalFinanceDataSourceTest {
     }
 
     @Test
+    fun remoteRefreshSupportsMoreThanSqliteBindLimit() = runTest {
+        seedAccountAndCategory()
+        val date = LocalDate.of(2026, 7, 24)
+        val remote = (1..1_001).map { serverId ->
+            TransactionEntity(
+                localId = "remote-$serverId",
+                serverId = serverId,
+                accountId = 1,
+                categoryId = 10,
+                amount = "1.00",
+                transactionDate = date.atStartOfDay().plusSeconds(serverId.toLong()).toString(),
+                comment = null,
+            )
+        }
+
+        local.replaceRemoteTransactions(1, date, date, remote)
+
+        assertEquals(1_001, local.observeTransactions(date, date).first().size)
+    }
+
+    @Test
     fun createdAccountRemapAlsoReassignsPendingTransactions() = runTest {
         local.upsertCategories(
             listOf(CategoryEntity(10, "Транспорт", "🚌", isIncome = false)),
@@ -127,16 +150,10 @@ class LocalFinanceDataSourceTest {
             existingLocalId = null,
         )
 
+        val sent = local.pendingAccounts().single()
         local.replaceCreatedAccount(
-            localId = localAccount.id,
-            remote = PendingAccount(
-                id = 77,
-                name = "Офлайн",
-                emoji = "💳",
-                balance = "1000",
-                currency = "RUB",
-                action = SyncAction.NONE,
-            ),
+            sent = sent,
+            remote = sent.copy(id = 77, action = SyncAction.NONE),
         )
 
         assertEquals(77, local.pendingTransactions().single().accountId)
@@ -443,6 +460,103 @@ class LocalFinanceDataSourceTest {
         assertEquals(SyncOutcome.SUCCESS, outcome)
         assertEquals(BigDecimal("1200.00"), remote.serverBalances.getValue(1))
         assertEquals(BigDecimal("1200.00"), local.getAccounts().single().balance.amount)
+    }
+
+    @Test
+    fun accountResponseDoesNotOverwriteEditMadeWhileUpdateWasInFlight() = runTest {
+        seedAccountAndCategory()
+        local.saveAccount(
+            AccountDraft(1, "Sent", "💳", BigDecimal("1000"), Currency.RUB),
+        )
+        val sent = local.pendingAccounts().single()
+
+        local.saveAccount(
+            AccountDraft(1, "Fresh", "💳", BigDecimal("1000"), Currency.RUB),
+        )
+        local.markAccountSynced(
+            sent = sent,
+            remote = sent.copy(name = "Server response", action = SyncAction.NONE),
+        )
+
+        val current = local.pendingAccounts().single()
+        assertEquals("Fresh", current.name)
+        assertEquals(SyncAction.UPDATE, current.action)
+        assertTrue(current.revision > sent.revision)
+    }
+
+    @Test
+    fun accountCreateResponseRemapsIdButKeepsNewerLocalEditPending() = runTest {
+        val created = local.saveAccount(
+            AccountDraft(null, "Sent", "💳", BigDecimal("1000"), Currency.RUB),
+        )
+        val sent = local.pendingAccounts().single()
+        local.saveAccount(
+            AccountDraft(created.id, "Fresh", "💳", BigDecimal("1000"), Currency.RUB),
+        )
+
+        local.replaceCreatedAccount(
+            sent = sent,
+            remote = sent.copy(id = 77, action = SyncAction.NONE),
+        )
+
+        val current = local.pendingAccounts().single()
+        assertEquals(77, current.id)
+        assertEquals("Fresh", current.name)
+        assertEquals(SyncAction.UPDATE, current.action)
+    }
+
+    @Test
+    fun transactionCreateResponseKeepsEditMadeWhileRequestWasInFlight() = runTest {
+        seedAccountAndCategory()
+        val saved = local.saveTransaction(
+            TransactionDraft(1, 10, "10", LocalDate.of(2026, 7, 24), LocalTime.NOON, "sent"),
+            BigDecimal.TEN,
+            "sent",
+            null,
+        )
+        val sent = local.pendingTransactions().single()
+        local.saveTransaction(
+            TransactionDraft(1, 10, "20", LocalDate.of(2026, 7, 24), LocalTime.NOON, "fresh"),
+            BigDecimal("20"),
+            "fresh",
+            saved.localId,
+        )
+
+        local.replaceCreatedTransaction(
+            sent = sent,
+            remote = sent.copy(serverId = 91, action = SyncAction.NONE),
+        )
+
+        val current = local.pendingTransactions().single()
+        assertEquals(91, current.serverId)
+        assertEquals("fresh", current.comment)
+        assertEquals("20", current.amount)
+        assertEquals(SyncAction.UPDATE, current.action)
+    }
+
+    @Test
+    fun editingPermanentlyFailedTransactionClearsFailureAndRequeuesIt() = runTest {
+        seedAccountAndCategory()
+        val saved = local.saveTransaction(
+            TransactionDraft(1, 10, "10", LocalDate.of(2026, 7, 24), LocalTime.NOON, null),
+            BigDecimal.TEN,
+            null,
+            null,
+        )
+        val sent = local.pendingTransactions().single()
+        local.markTransactionFailed(sent)
+        assertTrue(requireNotNull(local.getTransaction(saved.localId)).syncFailed)
+
+        local.saveTransaction(
+            TransactionDraft(1, 10, "11", LocalDate.of(2026, 7, 24), LocalTime.NOON, null),
+            BigDecimal("11"),
+            null,
+            saved.localId,
+        )
+
+        val retried = local.pendingTransactions().single()
+        assertEquals(null, retried.failure)
+        assertEquals(SyncAction.CREATE, retried.action)
     }
 
     private class ServerBalanceGateway(

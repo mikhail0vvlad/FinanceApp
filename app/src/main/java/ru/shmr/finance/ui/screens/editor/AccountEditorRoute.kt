@@ -19,6 +19,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -28,6 +29,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import ru.shmr.finance.di.ServiceLocator
+import ru.shmr.finance.R
+import ru.shmr.finance.ui.components.plainMessage
 import ru.shmr.finance.domain.model.Currency
 
 private class AccountEditorViewModelStoreOwner : ViewModelStoreOwner {
@@ -101,6 +104,7 @@ fun AccountEditorRoute(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isSaving by rememberUpdatedState(state.isSaving)
     val sheetState = rememberModalBottomSheetState(
@@ -115,7 +119,15 @@ fun AccountEditorRoute(
             when (effect) {
                 AccountEditorEffect.Saved -> onClose()
                 is AccountEditorEffect.ShowMessage -> scope.launch {
-                    snackbarHostState.showSnackbar(effect.message)
+                    val message = when (effect.message) {
+                        AccountEditorMessage.ACCOUNT_NOT_FOUND -> R.string.editor_account_not_found
+                        AccountEditorMessage.CURRENCY_HAS_HISTORY ->
+                            R.string.editor_error_currency_history
+                    }
+                    snackbarHostState.showSnackbar(context.getString(message))
+                }
+                is AccountEditorEffect.ShowError -> scope.launch {
+                    snackbarHostState.showSnackbar(effect.error.plainMessage(context))
                 }
             }
         }

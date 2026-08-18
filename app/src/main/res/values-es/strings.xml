@@ -1,4 +1,47 @@
 <resources>
+    <string name="action_select">Seleccionar</string>
+    <string name="cd_save">Guardar</string>
+    <string name="cd_selected">Seleccionado</string>
+    <string name="cd_clear_date">Borrar la fecha seleccionada</string>
+    <string name="editor_balance_adjustment">Ajuste de saldo</string>
+    <string name="editor_currency">Moneda</string>
+    <string name="editor_account_name">Nombre de la cuenta</string>
+    <string name="editor_category">Categoría</string>
+    <string name="editor_date">Fecha</string>
+    <string name="editor_time">Hora</string>
+    <string name="editor_account">Cuenta</string>
+    <string name="editor_comment">Comentario</string>
+    <string name="editor_choose_date">Elige una fecha</string>
+    <string name="editor_enter_time">Introduce una hora</string>
+    <string name="editor_account_not_found">Cuenta no encontrada</string>
+    <string name="editor_error_account_name">Introduce un nombre</string>
+    <string name="editor_error_non_negative_balance">Introduce un saldo no negativo</string>
+    <string name="editor_error_currency_history">No se puede cambiar la moneda de una cuenta con operaciones sin tipos de cambio</string>
+    <string name="editor_error_account_required">Elige una cuenta</string>
+    <string name="editor_error_category_required">Elige una categoría</string>
+    <string name="editor_error_positive_amount">Introduce un importe mayor que cero</string>
+    <string name="editor_error_date_time">Elige una fecha y hora válidas</string>
+    <string name="editor_error_date_range">La fecha está fuera del intervalo permitido</string>
+    <string name="editor_error_time_precision">Introduce la hora con precisión de minutos</string>
+    <string name="editor_error_date_required">Elige una fecha</string>
+    <string name="editor_error_time_required">Introduce una hora</string>
+    <string name="currency_rub_short">RUB</string>
+    <string name="error_client">El servidor rechazó la solicitud (código %1$d)</string>
+    <string name="error_storage">No se pudieron guardar los datos en este dispositivo</string>
+    <string name="validation_account_name_required">Introduce un nombre de cuenta</string>
+    <string name="validation_balance_negative">El saldo no puede ser negativo</string>
+    <string name="validation_account_currency_locked">No se puede cambiar la moneda de una cuenta con operaciones</string>
+    <string name="validation_transaction_invalid">Revisa los datos de la operación</string>
+    <string name="validation_api_token_required">Introduce un token de API</string>
+    <string name="settings_api_token">Acceso a la API</string>
+    <string name="settings_api_token_set">Configurado</string>
+    <string name="settings_api_token_not_set">Sin configurar</string>
+    <string name="settings_api_token_explanation">El token se cifra en este dispositivo y no se incluye en la aplicación de producción.</string>
+    <string name="settings_api_token_input">Nuevo token de API</string>
+    <string name="settings_api_token_saved">Token guardado. Sincronización iniciada</string>
+    <string name="settings_api_token_replace_hint">Ya hay un token configurado. Introduce uno nuevo para sustituirlo</string>
+    <string name="sync_status_pending">Pendiente de sincronización</string>
+    <string name="sync_status_failed">No se pudo sincronizar. Edita y vuelve a guardar</string>
     <string name="app_name">Finanzas</string>
     <string name="splash_subtitle">la máquina de la verdad financiera</string>
     <string name="nav_expenses">Gastos</string>
@@ -9,10 +52,12 @@
     <string name="balance_total">saldo total</string>
     <string name="cd_add">Añadir</string>
     <string name="cd_analysis">Análisis</string>
-    <string name="cd_history">Historial</string>
     <string name="cd_settings">Ajustes</string>
     <string name="cd_back">Atrás</string>
+    <string name="cd_pick_date">Elegir una fecha</string>
+    <string name="date_today">Hoy</string>
     <string name="error_no_internet">Sin conexión a Internet</string>
+    <string name="offline_changes_saved_locally">Sin Internet — los cambios se guardarán en este dispositivo</string>
     <string name="error_unauthorized">Error de autorización. Comprueba el token de API</string>
     <string name="error_server">Error del servidor (%1$d). Inténtalo más tarde</string>
     <string name="error_unknown">Algo salió mal</string>
@@ -50,13 +95,10 @@
     <string name="settings_security">Seguridad</string>
     <string name="settings_pin">Código PIN</string>
     <string name="settings_biometrics">Biometría</string>
-    <string name="settings_coming_later">En la siguiente etapa</string>
-    <string name="settings_currency_explanation">La moneda elegida solo se usa por defecto para cuentas nuevas. Los importes existentes no se convierten.</string>
     <string name="settings_articles_search">Buscar categorías</string>
     <string name="settings_clear_search">Borrar búsqueda</string>
     <string name="settings_articles_empty">Aún no hay categorías en caché</string>
     <string name="settings_articles_no_results">Sin resultados</string>
-    <string name="settings_security_next_chat">Los ajustes de seguridad estarán disponibles en la siguiente etapa.</string>
 
     <string name="currency_rub">Rublo ruso</string>
     <string name="currency_usd">Dólar estadounidense</string>
@@ -72,7 +114,7 @@
     <string name="language_french">Français</string>
     <string name="language_spanish">Español</string>
 
-    <string name="cd_pin_progress">%1$d de %2$d dígitos introducidos</string>
+    <string name="cd_pin_progress">Introducidos: %1$d de %2$d</string>
     <string name="cd_pin_backspace">Borrar dígito</string>
 
     <string name="security_pin_set">Definido</string>

@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import ru.shmr.finance.R
 
 @Immutable
 sealed interface LeadContent {
@@ -39,10 +41,16 @@ data class ListItemModel(
     val lead: LeadContent = LeadContent.None,
     val title: String,
     val subtitle: String? = null,
+    val syncStatus: ListItemSyncStatus? = null,
     val trailingText: String? = null,
     val trailingSubtext: String? = null,
     val showArrow: Boolean = false,
 )
+
+enum class ListItemSyncStatus {
+    PENDING,
+    FAILED,
+}
 
 @Composable
 private fun LeadBadge(emoji: String) {
@@ -96,6 +104,24 @@ fun ListItemRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            item.syncStatus?.let { status ->
+                Text(
+                    text = stringResource(
+                        when (status) {
+                            ListItemSyncStatus.PENDING -> R.string.sync_status_pending
+                            ListItemSyncStatus.FAILED -> R.string.sync_status_failed
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (status == ListItemSyncStatus.FAILED) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

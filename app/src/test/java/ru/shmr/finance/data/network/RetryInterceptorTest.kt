@@ -3,6 +3,7 @@ package ru.shmr.finance.data.network
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -64,6 +65,24 @@ class RetryInterceptorTest {
             .use { response -> assertEquals(503, response.code) }
 
         assertEquals(4, server.requestCount)
+    }
+
+    @Test
+    fun `does not retry non idempotent post after server error`() {
+        server.enqueue(MockResponse().setResponseCode(500))
+        server.enqueue(MockResponse().setResponseCode(200))
+        val delays = mutableListOf<Long>()
+        val request = Request.Builder()
+            .url(server.url("/transactions"))
+            .post("{}".toRequestBody())
+            .build()
+
+        client(delays::add).newCall(request).execute().use { response ->
+            assertEquals(500, response.code)
+        }
+
+        assertEquals(1, server.requestCount)
+        assertEquals(emptyList<Long>(), delays)
     }
 
     private fun client(sleeper: (Long) -> Unit): OkHttpClient =

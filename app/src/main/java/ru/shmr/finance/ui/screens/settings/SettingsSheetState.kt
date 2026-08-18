@@ -14,6 +14,7 @@ enum class SettingsPage {
     LANGUAGE,
     PIN,
     BIOMETRICS,
+    API_TOKEN,
 }
 
 @Immutable

@@ -13,4 +13,5 @@ data class Transaction(
     val localId: String = id.toString(),
     val serverId: Int? = id.takeIf { it > 0 },
     val isPending: Boolean = false,
+    val syncFailed: Boolean = false,
 )

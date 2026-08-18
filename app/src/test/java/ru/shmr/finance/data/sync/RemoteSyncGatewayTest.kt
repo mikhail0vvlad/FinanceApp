@@ -62,6 +62,8 @@ class RemoteSyncGatewayTest {
         balance = "1000.00",
         currency = "RUB",
         action = SyncAction.CREATE,
+        revision = 1,
+        failure = null,
     )
 
     private fun pendingTransaction() = PendingTransaction(
@@ -73,6 +75,8 @@ class RemoteSyncGatewayTest {
         transactionDate = LocalDateTime.of(2026, 8, 17, 23, 42),
         comment = null,
         action = SyncAction.UPDATE,
+        revision = 1,
+        failure = null,
     )
 
     @Test
@@ -87,6 +91,8 @@ class RemoteSyncGatewayTest {
             transactionDate = LocalDateTime.of(2026, 8, 17, 23, 42),
             comment = null,
             action = SyncAction.CREATE,
+            revision = 1,
+            failure = null,
         )
 
         val result = RemoteSyncGateway(api).createTransaction(pending)

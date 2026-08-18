@@ -14,7 +14,7 @@ import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 import ru.shmr.finance.di.ServiceLocator
 
-class WorkManagerSyncScheduler(
+internal class WorkManagerSyncScheduler(
     context: Context,
 ) : SyncScheduler {
 
@@ -53,13 +53,14 @@ class WorkManagerSyncScheduler(
     }
 }
 
-class FinanceSyncWorker(
+internal class FinanceSyncWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = when (ServiceLocator.syncAll()) {
+    override suspend fun doWork(): Result = when (ServiceLocator.syncOrchestrator.syncAll()) {
         SyncOutcome.SUCCESS -> Result.success()
+        SyncOutcome.PARTIAL_FAILURE -> Result.failure()
         SyncOutcome.RETRY -> Result.retry()
         SyncOutcome.FAILURE -> Result.failure()
     }

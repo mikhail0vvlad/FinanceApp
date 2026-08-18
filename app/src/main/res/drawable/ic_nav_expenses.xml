@@ -2,10 +2,12 @@
      Source glyph is centred at (32,16) in a 64x32 frame; translate (-20,-4)
      re-centres it into a 24x24 canvas. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportHeight="24"
+    tools:ignore="VectorPath">
     <group
         android:translateX="-20"
         android:translateY="-4">

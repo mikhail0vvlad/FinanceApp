@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ import ru.shmr.finance.R
 import ru.shmr.finance.domain.model.BiometricAvailability
 import ru.shmr.finance.ui.components.PinDots
 import ru.shmr.finance.ui.components.PinKeypad
+import ru.shmr.finance.ui.testing.PinTestTags
 
 @Composable
 fun PinFlowScreen(
@@ -45,6 +47,7 @@ fun PinFlowScreen(
 ) {
     Column(
         modifier = Modifier
+            .testTag(PinTestTags.ROOT)
             .fillMaxWidth()
             .padding(bottom = 24.dp),
     ) {
@@ -64,16 +67,22 @@ fun PinFlowScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier
+                .testTag(PinTestTags.stage(state.stage))
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 4.dp),
         )
-        PinDots(filled = state.entry.length, isError = state.error != null)
+        PinDots(
+            filled = state.entry.length,
+            isError = state.error != null,
+            modifier = Modifier.testTag(PinTestTags.DOTS),
+        )
         Text(
             text = state.error?.let { stringResource(errorMessage(it)) }.orEmpty(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
             modifier = Modifier
+                .testTag(PinTestTags.error(state.error))
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 8.dp),

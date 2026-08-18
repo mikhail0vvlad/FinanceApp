@@ -47,7 +47,7 @@ internal fun Preferences.toAppSettings(): AppSettings = AppSettings(
     ),
 )
 
-class DataStoreSettingsRepository internal constructor(
+internal class DataStoreSettingsRepository internal constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 

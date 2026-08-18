@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -27,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import ru.shmr.finance.di.ServiceLocator
+import ru.shmr.finance.ui.components.plainMessage
 
 private class TransactionEditorViewModelStoreOwner : ViewModelStoreOwner {
     override val viewModelStore = ViewModelStore()
@@ -107,6 +109,7 @@ fun TransactionEditorRoute(
     }
     val isSaving by rememberUpdatedState(state.isSaving)
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -119,8 +122,8 @@ fun TransactionEditorRoute(
         viewModel.effects.collect { effect ->
             when (effect) {
                 TransactionEditorEffect.Saved -> onClose()
-                is TransactionEditorEffect.ShowMessage -> scope.launch {
-                    snackbarHostState.showSnackbar(effect.message)
+                is TransactionEditorEffect.ShowError -> scope.launch {
+                    snackbarHostState.showSnackbar(effect.error.plainMessage(context))
                 }
             }
         }
