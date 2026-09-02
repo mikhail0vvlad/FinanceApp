@@ -1,0 +1,15 @@
+# Store everything with LF in the repository; check out per platform.
+* text=auto eol=lf
+
+# Windows scripts must keep CRLF to run from cmd.exe.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch binaries.
+*.jar   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.keystore binary
+*.jks   binary
