@@ -3,8 +3,9 @@
 .gradle/
 build/
 
-# Local docs / AI planning notes
-docs/
+# Local docs / AI planning notes (screenshots for the README are kept)
+docs/*
+!docs/screenshots/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -159,3 +160,6 @@ fabric.properties
 CLAUDE.md
 
 AGENTS.md
+
+# Kotlin build artifacts
+.kotlin/
